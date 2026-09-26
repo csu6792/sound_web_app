@@ -33,63 +33,133 @@ GitHub Repository → Actions → New workflow → `set up a workflow yourself`
 把下方內容貼進去：
 
 ```yaml
-name: Build SenseVoice and Deploy Pages
+name: Build SenseVoice Web
+
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
   workflow_dispatch:
+
 permissions:
   contents: read
   pages: write
   id-token: write
+
 concurrency:
   group: pages
   cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-22.04
+
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/checkout@v4
-      with:
-        repository: k2-fsa/sherpa-onnx
-        path: sherpa-onnx
-    - name: Install Emscripten
-      run: |
-        git clone --depth 1 --branch 4.0.23 https://github.com/emscripten-core/emsdk.git
-        cd emsdk
-        ./emsdk install 4.0.23
-        ./emsdk activate 4.0.23
-    - name: Build WASM
-      run: |
-        cd sherpa-onnx
-        source ../emsdk/emsdk_env.sh
-        ./build-wasm-simd-asr.sh
-    - name: Download model and assemble site
-      run: |
-        mkdir -p public/assets
-        cp index.html sw.js public/
-        cp sherpa-onnx/wasm/asr/sherpa-onnx-asr.js public/assets/
-        cp sherpa-onnx/build-wasm-simd-asr/install/bin/wasm/asr/sherpa-onnx-wasm-main-asr.js public/assets/
-        cp sherpa-onnx/build-wasm-simd-asr/install/bin/wasm/asr/sherpa-onnx-wasm-main-asr.wasm public/assets/
-        curl -L --fail --retry 3 "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09.tar.bz2" -o /tmp/model.tar.bz2
-        tar -xjf /tmp/model.tar.bz2 -C /tmp
-        cp /tmp/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/model.int8.onnx public/assets/
-        cp /tmp/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/tokens.txt public/assets/
-        touch public/.nojekyll
-    - uses: actions/configure-pages@v5
-    - uses: actions/upload-pages-artifact@v3
-      with:
-        path: public
+      - name: Checkout website
+        uses: actions/checkout@v4
+
+      - name: Checkout sherpa-onnx
+        uses: actions/checkout@v4
+        with:
+          repository: k2-fsa/sherpa-onnx
+          path: sherpa-onnx
+
+      - name: Install Emscripten
+        shell: bash
+        run: |
+          git clone --depth 1 --branch 4.0.23 \
+            https://github.com/emscripten-core/emsdk.git
+
+          cd emsdk
+          ./emsdk install 4.0.23
+          ./emsdk activate 4.0.23
+
+      - name: Build official WebAssembly runtime
+        shell: bash
+        run: |
+          source emsdk/emsdk_env.sh
+          cd sherpa-onnx
+
+          ./build-wasm-simd-web.sh
+
+      - name: Download SenseVoice INT8
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          mkdir -p public/assets
+
+          curl -L --fail --retry 3 \
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09.tar.bz2" \
+            -o /tmp/sensevoice.tar.bz2
+
+          mkdir -p /tmp/sensevoice
+
+          tar -xjf /tmp/sensevoice.tar.bz2 \
+            -C /tmp/sensevoice \
+            --strip-components=1
+
+          cp /tmp/sensevoice/model.int8.onnx \
+            public/assets/model.int8.onnx
+
+          cp /tmp/sensevoice/tokens.txt \
+            public/assets/tokens.txt
+
+      - name: Copy WebAssembly runtime
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          mkdir -p public/assets
+
+          cp \
+            sherpa-onnx/build-wasm-simd-web/install/bin/wasm/web/sherpa-onnx-wasm-web.js \
+            public/assets/
+
+          cp \
+            sherpa-onnx/build-wasm-simd-web/install/bin/wasm/web/sherpa-onnx-wasm-web.wasm \
+            public/assets/
+
+          cp \
+            sherpa-onnx/wasm/asr/sherpa-onnx-asr.js \
+            public/assets/
+
+          echo "===== Assets ====="
+          ls -lh public/assets/
+
+      - name: Copy website
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          cp index.html public/index.html
+
+          if [ -f sw.js ]; then
+            cp sw.js public/sw.js
+          fi
+
+          touch public/.nojekyll
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
   deploy:
     needs: build
     runs-on: ubuntu-22.04
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
-    - id: deployment
-      uses: actions/deploy-pages@v4
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
 ```
 
 貼完按 Commit changes。
