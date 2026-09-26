@@ -1,88 +1,708 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SenseVoice 離線中文語音輸入</title>
-<style>
-body{margin:0;background:#0b1020;color:#edf2fb;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC",sans-serif}
-main{max-width:700px;margin:auto;padding:24px 16px}.box{background:#121a2b;border:1px solid #293650;border-radius:20px;padding:20px}
-h1{font-size:23px;margin:0 0 5px}.sub{color:#95a3ba;font-size:13px;margin-bottom:18px}
-button{border:0;border-radius:12px;padding:13px 17px;margin:3px;background:#3272ed;color:white;font-weight:700;font-size:15px}
-button:disabled{opacity:.45}button.gray{background:#29364c}button.stop{background:#bd4054}
-#status{margin:14px 3px;padding:11px;border-radius:10px;background:#0c1423;color:#bac5d8;font-size:13px}
-textarea{width:100%;height:250px;box-sizing:border-box;border-radius:14px;background:#080d17;color:white;border:1px solid #2a3854;padding:15px;font-size:20px;line-height:1.6}
-small{color:#8492a9}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+
+  <title>SenseVoice 離線中文語音輸入</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #0b1020;
+      color: #edf2fb;
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Noto Sans TC",
+        "PingFang TC",
+        sans-serif;
+    }
+
+    main {
+      max-width: 700px;
+      margin: auto;
+      padding: 24px 16px;
+    }
+
+    .box {
+      background: #121a2b;
+      border: 1px solid #293650;
+      border-radius: 20px;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 23px;
+      margin: 0 0 5px;
+    }
+
+    .sub {
+      color: #95a3ba;
+      font-size: 13px;
+      margin-bottom: 18px;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 13px 17px;
+      margin: 0;
+      background: #3272ed;
+      color: white;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .45;
+      cursor: default;
+    }
+
+    button.gray {
+      background: #29364c;
+    }
+
+    button.stop {
+      background: #bd4054;
+    }
+
+    #status {
+      margin: 14px 3px;
+      padding: 11px;
+      border-radius: 10px;
+      background: #0c1423;
+      color: #bac5d8;
+      font-size: 13px;
+      min-height: 18px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 250px;
+      resize: vertical;
+      border-radius: 14px;
+      background: #080d17;
+      color: white;
+      border: 1px solid #2a3854;
+      padding: 15px;
+      font-size: 20px;
+      line-height: 1.6;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: #3272ed;
+    }
+
+    small {
+      color: #8492a9;
+      line-height: 1.6;
+    }
+  </style>
 </head>
-<body><main><div class="box">
-<h1>🎙 SenseVoice INT8</h1>
-<div class="sub">sherpa-onnx · iPhone 瀏覽器離線中文語音輸入</div>
-<button id="load">① 載入模型</button>
-<button id="mic" disabled>② 開始說話</button>
-<button id="clear" class="gray">清除</button>
-<div id="status">等待載入模型。</div>
-<textarea id="out" placeholder="辨識結果…"></textarea>
-<p><small>第一次載入需要下載模型；完成快取後可離線使用。請用 GitHub Pages HTTPS 並允許麥克風。</small></p>
-</div></main>
+
+<body>
+<main>
+  <div class="box">
+
+    <h1>🎙 SenseVoice INT8</h1>
+
+    <div class="sub">
+      sherpa-onnx · iPhone 瀏覽器離線中文語音輸入
+    </div>
+
+    <div class="buttons">
+      <button id="load">① 載入模型</button>
+      <button id="mic" disabled>② 開始說話</button>
+      <button id="clear" class="gray">清除</button>
+    </div>
+
+    <div id="status">
+      等待載入模型。
+    </div>
+
+    <textarea
+      id="out"
+      placeholder="辨識結果…"
+      spellcheck="false"
+    ></textarea>
+
+    <p>
+      <small>
+        第一次使用需要下載模型與 WebAssembly。
+        完成快取後，在支援 Service Worker 的 HTTPS 瀏覽器中可離線使用。
+        請允許麥克風權限。
+      </small>
+    </p>
+
+  </div>
+</main>
 
 <script>
-var Module={locateFile:p=>"./assets/"+p};
+/*
+ * sherpa-onnx WASM
+ *
+ * 讓 Emscripten 將 wasm / data 等檔案
+ * 從 ./assets/ 載入。
+ */
+var Module = {
+  locateFile: function (path) {
+    return "./assets/" + path;
+  }
+};
 </script>
-<script src="./assets/sherpa-onnx-asr.js"></script>
-<script src="./assets/sherpa-onnx-wasm-main-asr.js"></script>
-<script>
-const $=x=>document.getElementById(x);
-let rec=null,st=null,ctx=null,src=null,proc=null,mic=null,running=false;
-const say=x=>$("status").textContent=x;
 
-async function load(){
- $("load").disabled=true;say("正在載入 SenseVoice INT8…");
- try{
-  const cache=await caches.open("sensevoice-model");
-  let mr=await cache.match("./assets/model.int8.onnx");
-  if(!mr){mr=await fetch("./assets/model.int8.onnx");if(!mr.ok)throw Error("模型下載失敗");await cache.put("./assets/model.int8.onnx",mr.clone())}
-  let tr=await cache.match("./assets/tokens.txt");
-  if(!tr){tr=await fetch("./assets/tokens.txt");await cache.put("./assets/tokens.txt",tr.clone())}
-  const mb=await mr.arrayBuffer(), tt=await tr.text();
-  Module.FS_createDataFile("/","model.int8.onnx",new Uint8Array(mb),true,true);
-  Module.FS_createDataFile("/","tokens.txt",tt,true,true);
-  rec=new OfflineRecognizer({
-   featConfig:{sampleRate:16000,featureDim:80},
-   modelConfig:{tokens:"./tokens.txt",numThreads:2,provider:"cpu",debug:0,
-    senseVoice:{model:"./model.int8.onnx",language:"zh",useInverseTextNormalization:1}},
-   decodingMethod:"greedy_search"
-  },Module);
-  $("mic").disabled=false;say("模型已載入，可以開始說話。");
- }catch(e){console.error(e);say("載入失敗："+e.message);$("load").disabled=false}
+<!-- sherpa-onnx JavaScript API -->
+<script src="./assets/sherpa-onnx-asr.js"></script>
+
+<!-- 由 build-wasm-simd-web.sh 產生 -->
+<script src="./assets/sherpa-onnx-wasm-web.js"></script>
+
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+
+const loadButton = $("load");
+const micButton = $("mic");
+const clearButton = $("clear");
+const statusElement = $("status");
+const outputElement = $("out");
+
+let recognizer = null;
+
+let audioContext = null;
+let mediaStream = null;
+let mediaSource = null;
+let processor = null;
+
+let stream = null;
+let recording = false;
+let loading = false;
+
+
+/* -------------------------------------------------------
+ * UI
+ * ----------------------------------------------------- */
+
+function setStatus(message) {
+  statusElement.textContent = message;
 }
-async function start(){
- if(running){await stop();return}
- try{
-  mic=await navigator.mediaDevices.getUserMedia({audio:true});
-  ctx=new AudioContext({sampleRate:16000});
-  src=ctx.createMediaStreamSource(mic);
-  proc=ctx.createScriptProcessor(4096,1,1);
-  st=rec.createStream();
-  proc.onaudioprocess=e=>{
-   const a=new Float32Array(e.inputBuffer.getChannelData(0));
-   st.acceptWaveform(ctx.sampleRate,a);rec.decode(st);
-   const r=rec.getResult(st);if(r.text)$("out").value=r.text;
-  };
-  src.connect(proc);proc.connect(ctx.destination);running=true;
-  $("mic").textContent="⏹ 停止";$("mic").classList.add("stop");say("錄音中…");
- }catch(e){say("麥克風錯誤："+e.message)}
+
+
+/* -------------------------------------------------------
+ * Service Worker
+ * ----------------------------------------------------- */
+
+async function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) {
+    console.warn("Service Worker 不受目前瀏覽器支援。");
+    return;
+  }
+
+  try {
+    await navigator.serviceWorker.register("./sw.js");
+    console.log("Service Worker registered.");
+  } catch (error) {
+    console.warn("Service Worker 註冊失敗：", error);
+  }
 }
-async function stop(){
- try{
-  if(proc){proc.disconnect();proc.onaudioprocess=null}
-  if(src)src.disconnect();
-  if(st){rec.decode(st);const r=rec.getResult(st);if(r.text)$("out").value=r.text;st.free()}
-  if(ctx)await ctx.close();if(mic)mic.getTracks().forEach(x=>x.stop());
- }finally{
-  proc=src=ctx=mic=st=null;running=false;
-  $("mic").textContent="② 開始說話";$("mic").classList.remove("stop");say("完成。");
- }
+
+
+/* -------------------------------------------------------
+ * Load SenseVoice model
+ * ----------------------------------------------------- */
+
+async function loadModel() {
+  if (recognizer || loading) {
+    return;
+  }
+
+  loading = true;
+  loadButton.disabled = true;
+
+  setStatus("正在載入 SenseVoice INT8…");
+
+  try {
+    /*
+     * Service Worker 會負責 cache。
+     * 因此這裡直接 fetch 即可。
+     */
+    const modelResponse =
+      await fetch("./assets/model.int8.onnx");
+
+    if (!modelResponse.ok) {
+      throw new Error(
+        "模型下載失敗：" + modelResponse.status
+      );
+    }
+
+    setStatus("正在載入模型檔案…");
+
+    const tokensResponse =
+      await fetch("./assets/tokens.txt");
+
+    if (!tokensResponse.ok) {
+      throw new Error(
+        "tokens.txt 下載失敗：" + tokensResponse.status
+      );
+    }
+
+    const modelBuffer =
+      await modelResponse.arrayBuffer();
+
+    const tokensText =
+      await tokensResponse.text();
+
+
+    /*
+     * 防止重複建立檔案。
+     */
+    try {
+      Module.FS_unlink("/model.int8.onnx");
+    } catch (_) {}
+
+    try {
+      Module.FS_unlink("/tokens.txt");
+    } catch (_) {}
+
+
+    Module.FS_createDataFile(
+      "/",
+      "model.int8.onnx",
+      new Uint8Array(modelBuffer),
+      true,
+      true
+    );
+
+    Module.FS_createDataFile(
+      "/",
+      "tokens.txt",
+      tokensText,
+      true,
+      true
+    );
+
+
+    setStatus("正在建立 SenseVoice 辨識器…");
+
+
+    recognizer = new OfflineRecognizer(
+      {
+        featConfig: {
+          sampleRate: 16000,
+          featureDim: 80
+        },
+
+        modelConfig: {
+          tokens: "./tokens.txt",
+          numThreads: 2,
+          provider: "cpu",
+          debug: 0,
+
+          senseVoice: {
+            model: "./model.int8.onnx",
+            language: "zh",
+            useInverseTextNormalization: 1
+          }
+        },
+
+        decodingMethod: "greedy_search"
+      },
+      Module
+    );
+
+
+    micButton.disabled = false;
+
+    setStatus(
+      "模型已載入，可以開始說話。"
+    );
+
+  } catch (error) {
+
+    console.error(error);
+
+    recognizer = null;
+
+    setStatus(
+      "載入失敗：" +
+      (error && error.message
+        ? error.message
+        : error)
+    );
+
+    loadButton.disabled = false;
+
+  } finally {
+    loading = false;
+  }
 }
-$("load").onclick=load;$("mic").onclick=start;$("clear").onclick=()=>$("out").value="";
-if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js");
-</script></body></html>
+
+
+/* -------------------------------------------------------
+ * Audio
+ * ----------------------------------------------------- */
+
+async function startRecording() {
+
+  if (!recognizer) {
+    setStatus("請先載入模型。");
+    return;
+  }
+
+  if (recording) {
+    return;
+  }
+
+  try {
+
+    /*
+     * iPhone / Safari 必須在使用者操作後請求 microphone。
+     */
+    mediaStream =
+      await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        }
+      });
+
+
+    /*
+     * 不強制假設瀏覽器一定會真的使用 16000 Hz。
+     */
+    audioContext =
+      new AudioContext();
+
+
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+
+
+    const inputSampleRate =
+      audioContext.sampleRate;
+
+    console.log(
+      "AudioContext sample rate:",
+      inputSampleRate
+    );
+
+
+    mediaSource =
+      audioContext.createMediaStreamSource(
+        mediaStream
+      );
+
+
+    /*
+     * 暫時使用 ScriptProcessorNode。
+     *
+     * 後續如果要做真正即時 streaming，
+     * 可以再改成 AudioWorklet。
+     */
+    processor =
+      audioContext.createScriptProcessor(
+        4096,
+        1,
+        1
+      );
+
+
+    /*
+     * OfflineRecognizer：
+     *
+     * 這裡只負責收集音訊。
+     * 不在每個 audio chunk 呼叫 decode()。
+     */
+    stream = recognizer.createStream();
+
+
+    processor.onaudioprocess = event => {
+
+      if (!stream) {
+        return;
+      }
+
+      const input =
+        event.inputBuffer.getChannelData(0);
+
+
+      /*
+       * 複製 Float32Array。
+       */
+      const samples =
+        new Float32Array(input.length);
+
+      samples.set(input);
+
+
+      /*
+       * 注意：
+       *
+       * SenseVoice 模型使用 16 kHz。
+       *
+       * 如果瀏覽器實際 AudioContext 不是 16 kHz，
+       * 這裡需要 resample。
+       *
+       * 目前先處理常見的 16 kHz 情況。
+       */
+      if (inputSampleRate !== 16000) {
+        console.warn(
+          "瀏覽器實際取樣率為 " +
+          inputSampleRate +
+          " Hz；目前尚未加入高品質 resampler。"
+        );
+      }
+
+
+      stream.acceptWaveform(
+        inputSampleRate,
+        samples
+      );
+    };
+
+
+    mediaSource.connect(processor);
+
+    /*
+     * ScriptProcessorNode 必須連接到 destination
+     * 才能在部分瀏覽器正常觸發。
+     *
+     * 不讓麥克風聲音真正播放出去。
+     */
+    const silentGain =
+      audioContext.createGain();
+
+    silentGain.gain.value = 0;
+
+    processor.connect(silentGain);
+    silentGain.connect(
+      audioContext.destination
+    );
+
+
+    recording = true;
+
+    micButton.textContent = "⏹ 停止";
+    micButton.classList.add("stop");
+
+    setStatus(
+      "錄音中…說完後按「停止」。"
+    );
+
+  } catch (error) {
+
+    console.error(error);
+
+    cleanupAudio();
+
+    setStatus(
+      "麥克風錯誤：" +
+      (error && error.message
+        ? error.message
+        : error)
+    );
+  }
+}
+
+
+/* -------------------------------------------------------
+ * Stop + Decode
+ * ----------------------------------------------------- */
+
+async function stopRecording() {
+
+  if (!recording) {
+    return;
+  }
+
+  recording = false;
+
+  micButton.disabled = true;
+
+  setStatus(
+    "錄音完成，正在辨識…"
+  );
+
+
+  try {
+
+    /*
+     * 先停止 audio callback。
+     */
+    if (processor) {
+      processor.onaudioprocess = null;
+    }
+
+
+    /*
+     * 結束 microphone。
+     */
+    if (mediaStream) {
+      mediaStream
+        .getTracks()
+        .forEach(track => track.stop());
+    }
+
+
+    /*
+     * 關閉 AudioContext。
+     */
+    if (audioContext) {
+      await audioContext.close();
+    }
+
+
+    /*
+     * OfflineRecognizer 在這裡才 decode。
+     */
+    if (stream) {
+
+      recognizer.decode(stream);
+
+      const result =
+        recognizer.getResult(stream);
+
+      if (result && result.text) {
+        outputElement.value =
+          result.text;
+      } else {
+        setStatus(
+          "沒有辨識到文字。"
+        );
+        return;
+      }
+
+
+      /*
+       * 釋放 stream。
+       */
+      stream.free();
+    }
+
+
+    setStatus("完成。");
+
+  } catch (error) {
+
+    console.error(error);
+
+    setStatus(
+      "辨識失敗：" +
+      (error && error.message
+        ? error.message
+        : error)
+    );
+
+  } finally {
+
+    cleanupAudio();
+
+    micButton.disabled = false;
+
+    micButton.textContent =
+      "② 開始說話";
+
+    micButton.classList.remove("stop");
+  }
+}
+
+
+/* -------------------------------------------------------
+ * Cleanup
+ * ----------------------------------------------------- */
+
+function cleanupAudio() {
+
+  if (processor) {
+    try {
+      processor.disconnect();
+    } catch (_) {}
+  }
+
+  if (mediaSource) {
+    try {
+      mediaSource.disconnect();
+    } catch (_) {}
+  }
+
+  if (mediaStream) {
+    mediaStream
+      .getTracks()
+      .forEach(track => {
+        try {
+          track.stop();
+        } catch (_) {}
+      });
+  }
+
+  processor = null;
+  mediaSource = null;
+  mediaStream = null;
+  audioContext = null;
+  stream = null;
+}
+
+
+/* -------------------------------------------------------
+ * Buttons
+ * ----------------------------------------------------- */
+
+loadButton.addEventListener(
+  "click",
+  loadModel
+);
+
+
+micButton.addEventListener(
+  "click",
+  async () => {
+
+    if (recording) {
+      await stopRecording();
+    } else {
+      await startRecording();
+    }
+
+  }
+);
+
+
+clearButton.addEventListener(
+  "click",
+  () => {
+    outputElement.value = "";
+    setStatus(
+      recognizer
+        ? "模型已載入，可以開始說話。"
+        : "等待載入模型。"
+    );
+  }
+);
+
+
+/* -------------------------------------------------------
+ * Startup
+ * ----------------------------------------------------- */
+
+registerServiceWorker();
+</script>
+
+</body>
+</html>
