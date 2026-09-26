@@ -1,19 +1,13 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-
+  <meta charset="utf-8">
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-  />
+    content="width=device-width,initial-scale=1,viewport-fit=cover"
+  >
 
-  <meta
-    name="description"
-    content="Offline SenseVoice speech recognition powered by sherpa-onnx WebAssembly."
-  />
-
-  <title>SenseVoice 語音輸入</title>
+  <title>SenseVoice 中文語音輸入</title>
 
   <style>
     * {
@@ -25,132 +19,56 @@
       margin: 0;
       padding: 0;
       min-height: 100%;
-      background: #0b0f14;
-      color: #e8edf3;
+      background: #111827;
+      color: #f9fafb;
       font-family:
         -apple-system,
         BlinkMacSystemFont,
         "Segoe UI",
         "Noto Sans TC",
-        "PingFang TC",
-        "Microsoft JhengHei",
         sans-serif;
     }
 
     body {
-      min-height: 100vh;
-      padding:
-        max(20px, env(safe-area-inset-top))
-        16px
-        max(24px, env(safe-area-inset-bottom))
-        16px;
+      padding: 24px;
     }
 
     .container {
-      width: min(760px, 100%);
+      width: min(900px, 100%);
       margin: 0 auto;
     }
 
     h1 {
-      margin: 8px 0 6px;
+      margin: 0 0 8px;
       font-size: 28px;
-      line-height: 1.3;
-      letter-spacing: 0.02em;
     }
 
     .subtitle {
-      margin: 0 0 24px;
-      color: #98a2b3;
-      font-size: 14px;
-      line-height: 1.6;
+      color: #9ca3af;
+      margin-bottom: 24px;
     }
 
     .card {
-      background: #111720;
-      border: 1px solid #202936;
+      background: #1f2937;
+      border: 1px solid #374151;
       border-radius: 16px;
-      padding: 18px;
+      padding: 20px;
       margin-bottom: 16px;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
-    }
-
-    .status {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-height: 24px;
-      margin-bottom: 14px;
-      color: #b8c1ce;
-      font-size: 14px;
-    }
-
-    .statusDot {
-      width: 9px;
-      height: 9px;
-      flex: 0 0 9px;
-      border-radius: 50%;
-      background: #667085;
-    }
-
-    .statusDot.ready {
-      background: #22c55e;
-    }
-
-    .statusDot.loading {
-      background: #f59e0b;
-    }
-
-    .statusDot.error {
-      background: #ef4444;
-    }
-
-    .statusDot.recording {
-      background: #ef4444;
-      animation: pulse 1s infinite;
-    }
-
-    @keyframes pulse {
-      0%,
-      100% {
-        opacity: 1;
-      }
-
-      50% {
-        opacity: 0.35;
-      }
-    }
-
-    .buttons {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
     }
 
     button {
-      appearance: none;
-      width: 100%;
-      min-height: 48px;
-      border: 1px solid #2b3544;
-      border-radius: 12px;
-      background: #18202b;
-      color: #eef2f7;
-      font-size: 16px;
-      font-weight: 600;
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 18px;
+      margin: 4px;
+      font-size: 15px;
       cursor: pointer;
-      transition:
-        background 0.15s ease,
-        border-color 0.15s ease,
-        transform 0.05s ease,
-        opacity 0.15s ease;
+      background: #374151;
+      color: white;
     }
 
-    button:hover:not(:disabled) {
-      background: #202a37;
-      border-color: #3a4658;
-    }
-
-    button:active:not(:disabled) {
-      transform: translateY(1px);
+    button:hover {
+      background: #4b5563;
     }
 
     button:disabled {
@@ -158,1637 +76,1431 @@
       cursor: not-allowed;
     }
 
-    #loadBtn {
-      background: #1d4ed8;
-      border-color: #2563eb;
-    }
-
-    #loadBtn:hover:not(:disabled) {
+    .primary {
       background: #2563eb;
     }
 
-    #micBtn.recording {
-      background: #991b1b;
-      border-color: #dc2626;
+    .primary:hover {
+      background: #1d4ed8;
     }
 
-    #clearBtn {
-      color: #cbd5e1;
+    .danger {
+      background: #dc2626;
     }
 
-    .progressBox {
+    .progress-wrap {
       margin-top: 16px;
     }
 
-    .progressInfo {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 8px;
-      color: #b8c1ce;
-      font-size: 13px;
-    }
-
-    #progressPercent {
-      white-space: nowrap;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .progressBar {
+    progress {
       width: 100%;
-      height: 9px;
-      overflow: hidden;
-      border-radius: 999px;
-      background: #202936;
+      height: 18px;
     }
 
-    #progressFill {
-      width: 0%;
-      height: 100%;
-      border-radius: inherit;
-      background: #3b82f6;
-      transition: width 0.12s linear;
-    }
-
-    .resultLabel {
-      margin-bottom: 10px;
-      color: #98a2b3;
-      font-size: 13px;
-    }
-
-    #result {
-      width: 100%;
-      min-height: 180px;
-      resize: vertical;
-      padding: 14px;
-      border: 1px solid #2b3544;
-      border-radius: 12px;
-      outline: none;
-      background: #0c1118;
-      color: #f1f5f9;
-      font-size: 18px;
-      line-height: 1.7;
-      font-family: inherit;
-    }
-
-    #result:focus {
-      border-color: #3b82f6;
-    }
-
-    .info {
-      color: #7f8a9b;
-      font-size: 12px;
-      line-height: 1.7;
-    }
-
-    .info strong {
-      color: #aab4c2;
-    }
-
-    .errorBox {
-      display: none;
-      margin-top: 12px;
-      padding: 12px;
-      border: 1px solid #7f1d1d;
-      border-radius: 10px;
-      background: #2a1114;
-      color: #fecaca;
+    .status {
+      margin-top: 10px;
+      color: #d1d5db;
       white-space: pre-wrap;
       word-break: break-word;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 220px;
+      resize: vertical;
+      border-radius: 12px;
+      border: 1px solid #4b5563;
+      background: #111827;
+      color: white;
+      padding: 16px;
+      font-size: 18px;
+      line-height: 1.7;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: #60a5fa;
+    }
+
+    .small {
+      color: #9ca3af;
       font-size: 13px;
       line-height: 1.6;
     }
 
-    .errorBox.show {
-      display: block;
+    .ok {
+      color: #86efac;
     }
 
-    @media (min-width: 560px) {
-      .buttons {
-        grid-template-columns: 1fr 1fr 1fr;
-      }
+    .error {
+      color: #fca5a5;
+    }
+
+    .recording {
+      background: #b91c1c;
     }
   </style>
 </head>
 
 <body>
-  <main class="container">
 
-    <h1>SenseVoice 語音輸入</h1>
+<div class="container">
 
-    <p class="subtitle">
-      本地端 WebAssembly 語音辨識，不需要把錄音上傳到伺服器。
-    </p>
+  <h1>SenseVoice 中文語音輸入</h1>
 
-    <section class="card">
+  <div class="subtitle">
+    sherpa-onnx + SenseVoice INT8 + WebAssembly
+  </div>
 
-      <div class="status">
-        <span id="statusDot" class="statusDot"></span>
-        <span id="statusText">尚未載入模型</span>
+  <!-- ============================================================
+       Model
+       ============================================================ -->
+
+  <div class="card">
+
+    <button
+      id="loadModelBtn"
+      class="primary"
+    >
+      載入模型
+    </button>
+
+    <button
+      id="micBtn"
+      disabled
+    >
+      🎤 開始錄音
+    </button>
+
+    <button
+      id="clearBtn"
+    >
+      清除文字
+    </button>
+
+    <div class="progress-wrap">
+
+      <progress
+        id="progress"
+        value="0"
+        max="100"
+      ></progress>
+
+      <div
+        id="progressText"
+        class="status"
+      >
+        尚未載入模型
       </div>
 
-      <div class="buttons">
-        <button id="loadBtn">載入模型</button>
-        <button id="micBtn" disabled>開始錄音</button>
-        <button id="clearBtn">清除文字</button>
-      </div>
+    </div>
 
-      <div id="progressBox" class="progressBox" hidden>
-        <div class="progressInfo">
-          <span id="progressText">準備下載…</span>
-          <span id="progressPercent">0%</span>
-        </div>
+  </div>
 
-        <div class="progressBar">
-          <div id="progressFill"></div>
-        </div>
-      </div>
 
-      <div id="errorBox" class="errorBox"></div>
+  <!-- ============================================================
+       Result
+       ============================================================ -->
 
-    </section>
+  <div class="card">
 
-    <section class="card">
+    <textarea
+      id="result"
+      placeholder="語音辨識結果會出現在這裡..."
+    ></textarea>
 
-      <div class="resultLabel">
-        辨識結果
-      </div>
+  </div>
 
-      <textarea
-        id="result"
-        placeholder="語音辨識結果會出現在這裡…"
-        spellcheck="false"
-      ></textarea>
 
-    </section>
+  <!-- ============================================================
+       Debug
+       ============================================================ -->
 
-    <section class="card info">
+  <div class="card">
 
-      <div>
-        <strong>模型：</strong>
-        SenseVoice INT8
-      </div>
+    <div class="small">
+      <strong>Runtime:</strong>
+      <span id="runtimeStatus">尚未初始化</span>
+    </div>
 
-      <div>
-        <strong>模型來源：</strong>
-        Hugging Face
-      </div>
+    <div
+      id="debug"
+      class="small"
+      style="margin-top:10px;"
+    ></div>
 
-      <div>
-        <strong>推論：</strong>
-        sherpa-onnx + WebAssembly
-      </div>
+  </div>
 
-      <div>
-        <strong>模式：</strong>
-        Offline / CPU
-      </div>
+</div>
 
-    </section>
 
-  </main>
+<script>
+"use strict";
 
-  <!--
-    Emscripten Module 必須在 sherpa-onnx WASM JS 載入前設定。
-  -->
-  <script>
-    var Module = {
-      locateFile: function (path) {
-        return "./assets/" + path;
-      }
-    };
-  </script>
+/* ================================================================
+   URLs
+   ================================================================ */
 
-  <script src="./assets/sherpa-onnx-asr.js"></script>
-  <script src="./assets/sherpa-onnx-wasm-web.js"></script>
+const MODEL_URL =
+  "https://huggingface.co/csukuangfj/" +
+  "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/" +
+  "resolve/main/model.int8.onnx";
 
-  <script>
-    "use strict";
+const TOKENS_URL =
+  "https://huggingface.co/csukuangfj/" +
+  "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/" +
+  "resolve/main/tokens.txt";
 
-    /* =========================================================
-       Hugging Face model
-       ========================================================= */
 
-    const MODEL_URL =
-      "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/resolve/main/model.int8.onnx";
+/* ================================================================
+   DOM
+   ================================================================ */
 
-    const TOKENS_URL =
-      "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/resolve/main/tokens.txt";
+const loadModelBtn = document.getElementById("loadModelBtn");
+const micBtn = document.getElementById("micBtn");
+const clearBtn = document.getElementById("clearBtn");
 
-    /*
-      如果 Hugging Face 更新模型，
-      可以把版本鎖到特定 commit。
+const progress = document.getElementById("progress");
+const progressText = document.getElementById("progressText");
 
-      目前先使用 main。
-    */
+const resultText = document.getElementById("result");
 
-    const MODEL_CACHE_NAME =
-      "sensevoice-model-v1";
+const runtimeStatus = document.getElementById("runtimeStatus");
+const debug = document.getElementById("debug");
 
-    const MODEL_CACHE_KEY =
-      MODEL_URL;
 
-    /* =========================================================
-       DOM
-       ========================================================= */
+/* ================================================================
+   Global runtime state
+   ================================================================ */
 
-    const loadBtn =
-      document.getElementById("loadBtn");
+let wasmModule = null;
+let recognizer = null;
 
-    const micBtn =
-      document.getElementById("micBtn");
+let audioContext = null;
+let mediaStream = null;
+let sourceNode = null;
+let processorNode = null;
+let silentGain = null;
 
-    const clearBtn =
-      document.getElementById("clearBtn");
+let audioChunks = [];
 
-    const statusDot =
-      document.getElementById("statusDot");
+let isRecording = false;
 
-    const statusText =
-      document.getElementById("statusText");
 
-    const progressBox =
-      document.getElementById("progressBox");
+/* ================================================================
+   Debug
+   ================================================================ */
 
-    const progressText =
-      document.getElementById("progressText");
+function logDebug(message) {
+  console.log("[SenseVoice]", message);
 
-    const progressPercent =
-      document.getElementById("progressPercent");
+  debug.textContent +=
+    (debug.textContent ? "\n" : "") +
+    message;
+}
 
-    const progressFill =
-      document.getElementById("progressFill");
 
-    const resultBox =
-      document.getElementById("result");
+/* ================================================================
+   Number formatting
+   ================================================================ */
 
-    const errorBox =
-      document.getElementById("errorBox");
+function formatMB(bytes) {
+  return (bytes / 1024 / 1024).toFixed(1) + " MB";
+}
 
-    /* =========================================================
-       State
-       ========================================================= */
 
-    let recognizer = null;
+/* ================================================================
+   Fetch ArrayBuffer with progress
+   ================================================================ */
 
-    let audioContext = null;
+async function fetchWithProgress(url, label) {
 
-    let mediaStream = null;
+  const response = await fetch(
+    url,
+    {
+      method: "GET",
+      mode: "cors",
+      credentials: "omit",
+      cache: "default"
+    }
+  );
 
-    let sourceNode = null;
+  if (!response.ok) {
+    throw new Error(
+      `${label} HTTP ${response.status}`
+    );
+  }
 
-    let processorNode = null;
+  const contentLength =
+    Number(response.headers.get("content-length")) || 0;
 
-    let silentGain = null;
+  /*
+   * 如果瀏覽器拿不到 Content-Length，
+   * 仍然可以下載，只是 progress 無法顯示百分比。
+   */
 
-    let audioChunks = [];
+  if (!response.body) {
+    const buffer = await response.arrayBuffer();
 
-    let isRecording = false;
+    progress.value = 100;
 
-    let isLoading = false;
+    progressText.textContent =
+      `${label}: ${formatMB(buffer.byteLength)}`;
 
-    /* =========================================================
-       UI
-       ========================================================= */
+    return new Uint8Array(buffer);
+  }
 
-    function setStatus(
-      text,
-      type = ""
-    ) {
-      statusText.textContent = text;
+  const reader = response.body.getReader();
 
-      statusDot.className =
-        "statusDot";
+  const chunks = [];
 
-      if (type) {
-        statusDot.classList.add(type);
-      }
+  let received = 0;
+
+  while (true) {
+
+    const { done, value } =
+      await reader.read();
+
+    if (done) {
+      break;
     }
 
-    function clearError() {
-      errorBox.textContent = "";
-      errorBox.classList.remove("show");
-    }
+    if (value) {
 
-    function showError(error) {
-      console.error(error);
+      chunks.push(value);
 
-      const message =
-        error instanceof Error
-          ? error.message
-          : String(error);
+      received += value.byteLength;
 
-      errorBox.textContent =
-        message;
+      if (contentLength > 0) {
 
-      errorBox.classList.add("show");
-
-      setStatus(
-        "發生錯誤",
-        "error"
-      );
-    }
-
-    function formatBytes(bytes) {
-      if (
-        !Number.isFinite(bytes) ||
-        bytes < 0
-      ) {
-        return "0 B";
-      }
-
-      if (bytes < 1024) {
-        return `${bytes} B`;
-      }
-
-      if (
-        bytes <
-        1024 * 1024
-      ) {
-        return `${(
-          bytes / 1024
-        ).toFixed(1)} KB`;
-      }
-
-      if (
-        bytes <
-        1024 * 1024 * 1024
-      ) {
-        return `${(
-          bytes /
-          1024 /
-          1024
-        ).toFixed(1)} MB`;
-      }
-
-      return `${(
-        bytes /
-        1024 /
-        1024 /
-        1024
-      ).toFixed(2)} GB`;
-    }
-
-    function setProgress(
-      received,
-      total
-    ) {
-      progressBox.hidden = false;
-
-      if (
-        total > 0 &&
-        Number.isFinite(total)
-      ) {
         const percent =
-          Math.min(
-            100,
-            Math.floor(
-              received /
-              total *
-              100
-            )
-          );
+          received / contentLength * 100;
+
+        progress.value = percent;
 
         progressText.textContent =
-          `下載模型 ${formatBytes(received)} / ${formatBytes(total)}`;
-
-        progressPercent.textContent =
-          `${percent}%`;
-
-        progressFill.style.width =
-          `${percent}%`;
+          `${label}: ` +
+          `${percent.toFixed(1)}% ` +
+          `(${formatMB(received)} / ` +
+          `${formatMB(contentLength)})`;
 
       } else {
 
         progressText.textContent =
-          `下載模型 ${formatBytes(received)}`;
+          `${label}: ` +
+          `${formatMB(received)}`;
 
-        progressPercent.textContent =
-          "";
-
-        /*
-          沒有 Content-Length 時，
-          不假裝知道百分比。
-        */
-        progressFill.style.width =
-          "100%";
       }
     }
+  }
 
-    function finishProgress() {
-      progressText.textContent =
-        "模型下載完成";
+  const output =
+    new Uint8Array(received);
 
-      progressPercent.textContent =
-        "100%";
+  let offset = 0;
 
-      progressFill.style.width =
-        "100%";
-    }
+  for (const chunk of chunks) {
 
-    /* =========================================================
-       Model Cache
-       ========================================================= */
+    output.set(
+      chunk,
+      offset
+    );
 
-    async function getCachedModelResponse() {
-      if (
-        !("caches" in window)
-      ) {
-        return null;
-      }
+    offset += chunk.byteLength;
+  }
 
-      try {
-        const cache =
-          await caches.open(
-            MODEL_CACHE_NAME
+  progress.value = 100;
+
+  progressText.textContent =
+    `${label}: ` +
+    `${formatMB(output.byteLength)}`;
+
+  return output;
+}
+
+
+/* ================================================================
+   Decode UTF-8 tokens.txt
+   ================================================================ */
+
+function decodeText(bytes) {
+
+  return new TextDecoder(
+    "utf-8"
+  ).decode(bytes);
+
+}
+
+
+/* ================================================================
+   Create Emscripten Module instance
+   ================================================================ */
+
+async function createWasmModule() {
+
+  runtimeStatus.textContent =
+    "載入 WebAssembly runtime...";
+
+  logDebug(
+    "開始載入 sherpa-onnx-wasm-web.js"
+  );
+
+  /*
+   * IMPORTANT
+   *
+   * sherpa-onnx 的 Web build 是 Emscripten
+   * MODULARIZE build。
+   *
+   * 因此：
+   *
+   * sherpa-onnx-wasm-web.js
+   *
+   * 載入後取得的是 Module factory，
+   * 不是可以直接拿來 FS.writeFile 的 instance。
+   *
+   * 我們必須呼叫 factory。
+   */
+
+  if (
+    typeof window.SherpaOnnx === "function"
+  ) {
+
+    logDebug(
+      "找到 window.SherpaOnnx() factory"
+    );
+
+    const ModuleFactory =
+      window.SherpaOnnx;
+
+    wasmModule =
+      await ModuleFactory({
+
+        locateFile: function(path) {
+
+          return "./assets/" + path;
+
+        },
+
+        print: function(text) {
+          console.log(
+            "[WASM]",
+            text
           );
+        },
 
-        return await cache.match(
-          MODEL_CACHE_KEY
-        );
-
-      } catch (error) {
-        console.warn(
-          "Model cache read failed:",
-          error
-        );
-
-        return null;
-      }
-    }
-
-    async function saveModelToCache(
-      response
-    ) {
-      if (
-        !("caches" in window)
-      ) {
-        return;
-      }
-
-      try {
-        const cache =
-          await caches.open(
-            MODEL_CACHE_NAME
-          );
-
-        await cache.put(
-          MODEL_CACHE_KEY,
-          response
-        );
-
-        console.log(
-          "SenseVoice model cached."
-        );
-
-      } catch (error) {
-        /*
-          Cache 失敗不能讓模型載入失敗。
-        */
-        console.warn(
-          "Model cache write failed:",
-          error
-        );
-      }
-    }
-
-    async function clearModelCache() {
-      if (
-        !("caches" in window)
-      ) {
-        return;
-      }
-
-      try {
-        await caches.delete(
-          MODEL_CACHE_NAME
-        );
-      } catch (_) {}
-    }
-
-    /* =========================================================
-       Download
-       ========================================================= */
-
-    async function fetchModelWithProgress(
-      url
-    ) {
-      /*
-        先嘗試 Cache Storage。
-      */
-      const cached =
-        await getCachedModelResponse();
-
-      if (cached) {
-        console.log(
-          "Using cached SenseVoice model."
-        );
-
-        return cached;
-      }
-
-      /*
-        第一次從 Hugging Face 下載。
-      */
-      const response =
-        await fetch(
-          url,
-          {
-            method: "GET",
-            mode: "cors",
-            credentials: "omit",
-            cache: "default"
-          }
-        );
-
-      if (!response.ok) {
-        throw new Error(
-          `Hugging Face 模型下載失敗：HTTP ${response.status} ${response.statusText}`
-        );
-      }
-
-      if (!response.body) {
-        throw new Error(
-          "瀏覽器不支援 ReadableStream，無法顯示模型下載進度。"
-        );
-      }
-
-      /*
-        Clone 一份給 Cache Storage。
-
-        原始 response 用來讀取 stream。
-      */
-      const cacheResponse =
-        response.clone();
-
-      /*
-        背景快取。
-
-        不 await，避免阻塞模型下載。
-      */
-      saveModelToCache(
-        cacheResponse
-      );
-
-      return response;
-    }
-
-    async function responseToUint8Array(
-      response,
-      onProgress
-    ) {
-      if (!response.body) {
-        throw new Error(
-          "模型 response 沒有 body。"
-        );
-      }
-
-      const contentLength =
-        response.headers.get(
-          "Content-Length"
-        );
-
-      const total =
-        contentLength &&
-        Number.isFinite(
-          Number(contentLength)
-        )
-          ? Number(contentLength)
-          : 0;
-
-      const reader =
-        response.body.getReader();
-
-      const chunks = [];
-
-      let received = 0;
-
-      while (true) {
-        const { done, value } =
-          await reader.read();
-
-        if (done) {
-          break;
-        }
-
-        if (
-          value &&
-          value.byteLength
-        ) {
-          chunks.push(value);
-
-          received +=
-            value.byteLength;
-
-          onProgress(
-            received,
-            total
+        printErr: function(text) {
+          console.error(
+            "[WASM]",
+            text
           );
         }
-      }
 
-      const data =
-        new Uint8Array(
-          received
-        );
+      });
 
-      let offset = 0;
+    return wasmModule;
+  }
 
-      for (
-        const chunk of chunks
-      ) {
-        data.set(
-          chunk,
-          offset
-        );
 
-        offset +=
-          chunk.byteLength;
-      }
+  /*
+   * 某些 Emscripten build 會把 factory
+   * 暴露成 window.Module。
+   */
 
-      return data;
-    }
+  if (
+    typeof window.Module === "function"
+  ) {
 
-    async function fetchTokens() {
-      const response =
-        await fetch(
-          TOKENS_URL,
-          {
-            method: "GET",
-            mode: "cors",
-            credentials: "omit",
-            cache: "default"
-          }
-        );
+    logDebug(
+      "找到 window.Module() factory"
+    );
 
-      if (!response.ok) {
-        throw new Error(
-          `tokens.txt 下載失敗：HTTP ${response.status}`
-        );
-      }
+    const ModuleFactory =
+      window.Module;
 
-      return await response.text();
-    }
+    wasmModule =
+      await ModuleFactory({
 
-    /* =========================================================
-       Emscripten FS
-       ========================================================= */
+        locateFile: function(path) {
 
-    function getEmscriptenFS() {
+          return "./assets/" + path;
 
-      if (
-        typeof Module !== "undefined" &&
-        Module.FS &&
-        typeof Module.FS.writeFile ===
-          "function"
-      ) {
-        return Module.FS;
-      }
-
-      if (
-        typeof globalThis !== "undefined" &&
-        globalThis.FS &&
-        typeof globalThis.FS.writeFile ===
-          "function"
-      ) {
-        return globalThis.FS;
-      }
-
-      return null;
-    }
-
-    function removeWasmFile(
-      fs,
-      path
-    ) {
-      try {
-        if (
-          fs &&
-          typeof fs.unlink ===
-            "function"
-        ) {
-          fs.unlink(path);
         }
-      } catch (_) {}
-    }
 
-    function writeWasmFile(
-      path,
-      data
-    ) {
-      const fs =
-        getEmscriptenFS();
+      });
 
-      if (fs) {
-        fs.writeFile(
-          path,
-          data
-        );
+    return wasmModule;
+  }
 
-        return;
-      }
 
-      /*
-        舊版相容。
-      */
-      if (
-        typeof Module !== "undefined" &&
-        typeof Module.FS_createDataFile ===
-          "function"
-      ) {
+  /*
+   * 最後嘗試等待 Module。
+   *
+   * 注意：
+   * 如果它本身已經是 object，
+   * 就直接使用。
+   */
 
-        const slash =
-          path.lastIndexOf("/");
+  if (
+    window.Module &&
+    typeof window.Module === "object"
+  ) {
 
-        const dir =
-          slash <= 0
-            ? "/"
-            : path.substring(
-                0,
-                slash
-              );
+    logDebug(
+      "找到既有 Emscripten Module instance"
+    );
 
-        const filename =
-          path.substring(
-            slash + 1
-          );
+    wasmModule =
+      window.Module;
 
-        Module.FS_createDataFile(
-          dir,
-          filename,
-          data,
-          true,
-          true
-        );
+    return wasmModule;
+  }
 
-        return;
-      }
 
-      throw new Error(
-        [
-          "WebAssembly 沒有提供 Emscripten FS。",
-          "",
-          "找不到：",
-          "Module.FS.writeFile",
-          "globalThis.FS.writeFile",
-          "Module.FS_createDataFile",
-          "",
-          "請確認 GitHub Actions 使用本頁提供的 YAML，",
-          "該 YAML 會在編譯 WASM 時 export FS。"
-        ].join("\n")
-      );
-    }
+  throw new Error(
+    "找不到 Emscripten Module factory。"
+  );
+}
 
-    function writeModelToWasmFS(
-      modelData,
-      tokensText
-    ) {
-      const fs =
-        getEmscriptenFS();
 
-      if (fs) {
-        removeWasmFile(
-          fs,
-          "/model.int8.onnx"
-        );
+/* ================================================================
+   Verify Emscripten FS
+   ================================================================ */
 
-        removeWasmFile(
-          fs,
-          "/tokens.txt"
-        );
-      }
+function verifyFS() {
 
-      writeWasmFile(
-        "/model.int8.onnx",
-        modelData
-      );
+  if (!wasmModule) {
 
-      writeWasmFile(
-        "/tokens.txt",
-        tokensText
-      );
-    }
+    throw new Error(
+      "WASM Module 尚未初始化。"
+    );
 
-    /* =========================================================
-       Load Model
-       ========================================================= */
+  }
 
-    async function loadModel() {
+  logDebug(
+    "Module constructor: " +
+    (
+      wasmModule.constructor &&
+      wasmModule.constructor.name
+        ? wasmModule.constructor.name
+        : "unknown"
+    )
+  );
 
-      if (isLoading) {
-        return;
-      }
 
-      if (recognizer) {
-        setStatus(
-          "模型已經載入",
-          "ready"
-        );
+  if (
+    wasmModule.FS &&
+    typeof wasmModule.FS.writeFile === "function"
+  ) {
 
-        return;
-      }
+    logDebug(
+      "OK: wasmModule.FS.writeFile 可用"
+    );
 
-      isLoading = true;
+    return wasmModule.FS;
+  }
 
-      loadBtn.disabled = true;
 
-      clearError();
+  /*
+   * 某些 Emscripten 版本會提供
+   * global FS。
+   */
 
-      try {
+  if (
+    typeof window.FS === "object" &&
+    typeof window.FS.writeFile === "function"
+  ) {
 
-        setStatus(
-          "檢查模型快取…",
-          "loading"
-        );
+    logDebug(
+      "OK: window.FS.writeFile 可用"
+    );
 
-        progressBox.hidden = false;
+    return window.FS;
+  }
 
-        progressText.textContent =
-          "準備下載…";
 
-        progressPercent.textContent =
-          "0%";
+  throw new Error(
+    "Emscripten Module 已初始化，但 FS.writeFile 不存在。"
+  );
+}
 
-        progressFill.style.width =
-          "0%";
 
-        /*
-          Hugging Face
-        */
-        const modelResponse =
-          await fetchModelWithProgress(
-            MODEL_URL
-          );
+/* ================================================================
+   Write file into WASM virtual filesystem
+   ================================================================ */
 
-        setStatus(
-          "下載 SenseVoice INT8 模型…",
-          "loading"
-        );
+function writeWasmFile(
+  filename,
+  data
+) {
 
-        const modelData =
-          await responseToUint8Array(
-            modelResponse,
-            (
-              received,
-              total
-            ) => {
-              setProgress(
-                received,
-                total
-              );
-            }
-          );
+  const FS =
+    verifyFS();
 
-        console.log(
-          "SenseVoice model:",
-          formatBytes(
-            modelData.byteLength
+  logDebug(
+    `寫入 WASM FS: ${filename} ` +
+    `(${formatMB(data.byteLength)})`
+  );
+
+  FS.writeFile(
+    "/" + filename,
+    data
+  );
+
+  logDebug(
+    `FS.writeFile 完成: /${filename}`
+  );
+}
+
+
+/* ================================================================
+   Load sherpa-onnx ASR JavaScript API
+   ================================================================ */
+
+async function loadAsrApi() {
+
+  if (
+    typeof window.OfflineRecognizer ===
+    "function"
+  ) {
+
+    logDebug(
+      "OfflineRecognizer 已存在"
+    );
+
+    return;
+  }
+
+  logDebug(
+    "載入 sherpa-onnx-asr.js"
+  );
+
+  await new Promise(
+    (resolve, reject) => {
+
+      const script =
+        document.createElement("script");
+
+      script.src =
+        "./assets/sherpa-onnx-asr.js";
+
+      script.onload =
+        resolve;
+
+      script.onerror =
+        () => reject(
+          new Error(
+            "sherpa-onnx-asr.js 載入失敗"
           )
         );
 
-        finishProgress();
+      document.head.appendChild(
+        script
+      );
 
-        /*
-          tokens.txt
-        */
-        setStatus(
-          "下載 tokens.txt…",
-          "loading"
-        );
+    }
+  );
 
-        const tokensText =
-          await fetchTokens();
 
-        /*
-          寫入 WASM FS
-        */
-        setStatus(
-          "準備 WebAssembly 模型…",
-          "loading"
-        );
+  if (
+    typeof window.OfflineRecognizer !==
+    "function"
+  ) {
 
-        writeModelToWasmFS(
-          modelData,
-          tokensText
-        );
+    throw new Error(
+      "sherpa-onnx-asr.js 載入成功，但 OfflineRecognizer 不存在。"
+    );
 
-        /*
-          建立 OfflineRecognizer
-        */
-        setStatus(
-          "初始化 SenseVoice…",
-          "loading"
-        );
+  }
 
-        recognizer =
-          new OfflineRecognizer(
-            {
-              featConfig: {
-                sampleRate: 16000,
-                featureDim: 80
-              },
+  logDebug(
+    "OfflineRecognizer API OK"
+  );
+}
 
-              modelConfig: {
-                tokens:
-                  "./tokens.txt",
 
-                numThreads: 2,
+/* ================================================================
+   Load model
+   ================================================================ */
 
-                provider: "cpu",
+async function loadModel() {
 
-                debug: 0,
+  loadModelBtn.disabled = true;
 
-                senseVoice: {
-                  model:
-                    "./model.int8.onnx",
+  progress.value = 0;
 
-                  /*
-                    SenseVoice 語言：
+  progressText.textContent =
+    "正在初始化 WebAssembly...";
 
-                    zh = 中文
-                    en = 英文
-                    ja = 日文
-                    ko = 韓文
-                    yue = 粵語
+  runtimeStatus.textContent =
+    "初始化中...";
 
-                    目前預設中文。
-                  */
-                  language: "zh",
+  debug.textContent = "";
 
-                  useInverseTextNormalization:
-                    1
-                }
-              },
+  try {
 
-              decodingMethod:
-                "greedy_search"
+    /* ------------------------------------------------------------
+       1. Load WASM JS
+       ------------------------------------------------------------ */
+
+    await loadWasmScript();
+
+
+    /* ------------------------------------------------------------
+       2. Create actual Emscripten Module
+       ------------------------------------------------------------ */
+
+    await createWasmModule();
+
+    runtimeStatus.textContent =
+      "WebAssembly 已初始化";
+
+    logDebug(
+      "Emscripten Module 初始化完成"
+    );
+
+
+    /* ------------------------------------------------------------
+       3. Verify FS
+       ------------------------------------------------------------ */
+
+    verifyFS();
+
+
+    /* ------------------------------------------------------------
+       4. Load sherpa-onnx JS API
+       ------------------------------------------------------------ */
+
+    await loadAsrApi();
+
+
+    /* ------------------------------------------------------------
+       5. Download model
+       ------------------------------------------------------------ */
+
+    progress.value = 0;
+
+    const modelBytes =
+      await fetchWithProgress(
+        MODEL_URL,
+        "SenseVoice model"
+      );
+
+
+    /* ------------------------------------------------------------
+       6. Write model into WASM FS
+       ------------------------------------------------------------ */
+
+    writeWasmFile(
+      "model.int8.onnx",
+      modelBytes
+    );
+
+
+    /* ------------------------------------------------------------
+       7. Download tokens
+       ------------------------------------------------------------ */
+
+    progress.value = 0;
+
+    const tokenBytes =
+      await fetchWithProgress(
+        TOKENS_URL,
+        "tokens.txt"
+      );
+
+
+    /* ------------------------------------------------------------
+       8. Write tokens into WASM FS
+       ------------------------------------------------------------ */
+
+    writeWasmFile(
+      "tokens.txt",
+      tokenBytes
+    );
+
+
+    /* ------------------------------------------------------------
+       9. Create recognizer
+       ------------------------------------------------------------ */
+
+    progressText.textContent =
+      "正在建立 SenseVoice 辨識器...";
+
+    recognizer =
+      new OfflineRecognizer(
+        {
+
+          featConfig: {
+            sampleRate: 16000,
+            featureDim: 80
+          },
+
+          modelConfig: {
+
+            senseVoice: {
+              model:
+                "./model.int8.onnx"
             },
 
-            Module
-          );
+            tokens:
+              "./tokens.txt",
 
-        setStatus(
-          "模型已載入，可以開始錄音",
-          "ready"
-        );
+            numThreads: 2,
 
-        micBtn.disabled =
-          false;
+            provider: "cpu",
 
-      } catch (error) {
+            debug: 0
 
-        recognizer = null;
+          },
 
-        showError(
-          `載入失敗：${
-            error instanceof Error
-              ? error.message
-              : String(error)
-          }`
-        );
+          decodingMethod:
+            "greedy_search",
 
-      } finally {
+          maxActivePaths: 4,
 
-        isLoading = false;
+          enableEndpoint: 1,
 
-        loadBtn.disabled =
-          false;
-      }
-    }
+          useInverseTextNormalization: 1,
 
-    /* =========================================================
-       Audio
-       ========================================================= */
+          ruleFsts: "",
 
-    function mergeFloat32Arrays(
-      chunks
-    ) {
-      let totalLength = 0;
+          ruleFars: ""
 
-      for (
-        const chunk of chunks
-      ) {
-        totalLength +=
-          chunk.length;
-      }
+        },
+        wasmModule
+      );
 
-      const result =
-        new Float32Array(
-          totalLength
-        );
 
-      let offset = 0;
+    logDebug(
+      "OfflineRecognizer 建立完成"
+    );
 
-      for (
-        const chunk of chunks
-      ) {
-        result.set(
-          chunk,
-          offset
-        );
 
-        offset +=
-          chunk.length;
-      }
+    runtimeStatus.textContent =
+      "模型已載入";
 
-      return result;
-    }
+    progress.value = 100;
 
-    /*
-      Linear resampler。
+    progressText.textContent =
+      "SenseVoice 模型載入完成";
 
-      iPhone Safari 常見 48000 Hz，
-      SenseVoice 使用 16000 Hz。
-    */
-    function resampleLinear(
-      input,
-      inputSampleRate,
-      outputSampleRate
-    ) {
+    micBtn.disabled = false;
+
+    loadModelBtn.textContent =
+      "模型已載入";
+
+  } catch (error) {
+
+    console.error(error);
+
+    runtimeStatus.textContent =
+      "載入失敗";
+
+    progressText.textContent =
+      "載入失敗：" +
+      (
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+      );
+
+    loadModelBtn.disabled = false;
+
+    throw error;
+  }
+}
+
+
+/* ================================================================
+   Load WASM glue JS
+   ================================================================ */
+
+function loadWasmScript() {
+
+  return new Promise(
+    (resolve, reject) => {
 
       if (
-        inputSampleRate ===
-        outputSampleRate
-      ) {
-        return input;
-      }
-
-      const ratio =
-        inputSampleRate /
-        outputSampleRate;
-
-      const outputLength =
-        Math.max(
-          1,
-          Math.round(
-            input.length /
-            ratio
-          )
-        );
-
-      const output =
-        new Float32Array(
-          outputLength
-        );
-
-      for (
-        let i = 0;
-        i < outputLength;
-        i++
+        document.querySelector(
+          'script[data-sherpa-wasm="1"]'
+        )
       ) {
 
-        const position =
-          i * ratio;
+        resolve();
 
-        const index =
-          Math.floor(
-            position
-          );
-
-        const fraction =
-          position - index;
-
-        const a =
-          input[
-            Math.min(
-              index,
-              input.length - 1
-            )
-          ];
-
-        const b =
-          input[
-            Math.min(
-              index + 1,
-              input.length - 1
-            )
-          ];
-
-        output[i] =
-          a +
-          (b - a) *
-          fraction;
-      }
-
-      return output;
-    }
-
-    /* =========================================================
-       Start Recording
-       ========================================================= */
-
-    async function startRecording() {
-
-      if (!recognizer) {
-        throw new Error(
-          "請先載入模型。"
-        );
-      }
-
-      if (isRecording) {
         return;
       }
 
-      clearError();
 
-      mediaStream =
-        await navigator.mediaDevices.getUserMedia(
-          {
-            audio: {
-              channelCount: 1,
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true
-            }
-          }
-        );
+      const script =
+        document.createElement("script");
 
-      audioContext =
-        new (
-          window.AudioContext ||
-          window.webkitAudioContext
-        )();
+      script.src =
+        "./assets/sherpa-onnx-wasm-web.js";
 
-      if (
-        audioContext.state ===
-        "suspended"
-      ) {
-        await audioContext.resume();
-      }
+      script.dataset.sherpaWasm =
+        "1";
 
-      const sampleRate =
-        audioContext.sampleRate;
 
-      console.log(
-        "Audio sample rate:",
-        sampleRate
-      );
+      script.onload =
+        () => {
 
-      sourceNode =
-        audioContext.createMediaStreamSource(
-          mediaStream
-        );
-
-      processorNode =
-        audioContext.createScriptProcessor(
-          4096,
-          1,
-          1
-        );
-
-      silentGain =
-        audioContext.createGain();
-
-      silentGain.gain.value =
-        0;
-
-      audioChunks = [];
-
-      processorNode.onaudioprocess =
-        event => {
-
-          if (!isRecording) {
-            return;
-          }
-
-          const input =
-            event.inputBuffer.getChannelData(
-              0
-            );
-
-          audioChunks.push(
-            new Float32Array(
-              input
-            )
+          logDebug(
+            "sherpa-onnx-wasm-web.js 載入完成"
           );
+
+          resolve();
+
         };
 
-      sourceNode.connect(
-        processorNode
+
+      script.onerror =
+        () => {
+
+          reject(
+            new Error(
+              "sherpa-onnx-wasm-web.js 載入失敗"
+            )
+          );
+
+        };
+
+
+      document.head.appendChild(
+        script
       );
 
-      processorNode.connect(
-        silentGain
-      );
-
-      silentGain.connect(
-        audioContext.destination
-      );
-
-      isRecording = true;
-
-      micBtn.textContent =
-        "停止錄音";
-
-      micBtn.classList.add(
-        "recording"
-      );
-
-      loadBtn.disabled =
-        true;
-
-      setStatus(
-        `錄音中（${sampleRate} Hz）…`,
-        "recording"
-      );
     }
+  );
+}
 
-    /* =========================================================
-       Stop Recording
-       ========================================================= */
 
-    function disconnectAudio() {
+/* ================================================================
+   Linear resampling
+   ================================================================ */
 
-      if (processorNode) {
-        try {
-          processorNode.disconnect();
-        } catch (_) {}
-      }
+function resampleLinear(
+  input,
+  inputRate,
+  outputRate
+) {
 
-      if (sourceNode) {
-        try {
-          sourceNode.disconnect();
-        } catch (_) {}
-      }
+  if (
+    inputRate === outputRate
+  ) {
 
-      if (silentGain) {
-        try {
-          silentGain.disconnect();
-        } catch (_) {}
-      }
+    return input;
 
-      if (mediaStream) {
+  }
 
-        for (
-          const track
-          of mediaStream.getTracks()
-        ) {
-          try {
-            track.stop();
-          } catch (_) {}
-        }
-      }
 
-      processorNode = null;
-      sourceNode = null;
-      silentGain = null;
-      mediaStream = null;
-    }
+  const ratio =
+    inputRate / outputRate;
 
-    async function stopRecording() {
+  const outputLength =
+    Math.floor(
+      input.length / ratio
+    );
 
-      if (!isRecording) {
-        return;
-      }
+  const output =
+    new Float32Array(
+      outputLength
+    );
 
-      isRecording = false;
 
-      micBtn.textContent =
-        "開始錄音";
+  for (
+    let i = 0;
+    i < outputLength;
+    i++
+  ) {
 
-      micBtn.classList.remove(
-        "recording"
+    const position =
+      i * ratio;
+
+    const left =
+      Math.floor(position);
+
+    const right =
+      Math.min(
+        left + 1,
+        input.length - 1
       );
 
-      loadBtn.disabled =
-        true;
+    const frac =
+      position - left;
 
-      micBtn.disabled =
-        true;
+    output[i] =
+      input[left] *
+      (1 - frac) +
+      input[right] *
+      frac;
 
-      const currentAudioContext =
-        audioContext;
+  }
 
-      const originalSampleRate =
-        currentAudioContext
-          ? currentAudioContext.sampleRate
-          : 48000;
+  return output;
+}
 
-      disconnectAudio();
 
-      try {
+/* ================================================================
+   Start microphone
+   ================================================================ */
 
-        setStatus(
-          "整理錄音…",
-          "loading"
-        );
+async function startRecording() {
 
-        const inputSamples =
-          mergeFloat32Arrays(
-            audioChunks
-          );
+  if (!recognizer) {
 
-        audioChunks = [];
-
-        if (
-          inputSamples.length === 0
-        ) {
-          throw new Error(
-            "沒有取得任何麥克風音訊。"
-          );
-        }
-
-        /*
-          16 kHz
-        */
-        setStatus(
-          "轉換成 16 kHz…",
-          "loading"
-        );
-
-        const samples16k =
-          resampleLinear(
-            inputSamples,
-            originalSampleRate,
-            16000
-          );
-
-        console.log(
-          "Original samples:",
-          inputSamples.length
-        );
-
-        console.log(
-          "Resampled samples:",
-          samples16k.length
-        );
-
-        /*
-          關閉 AudioContext
-        */
-        if (
-          currentAudioContext
-        ) {
-          try {
-            await currentAudioContext.close();
-          } catch (_) {}
-        }
-
-        audioContext =
-          null;
-
-        /*
-          建立 recognizer stream
-        */
-        const stream =
-          recognizer.createStream();
-
-        stream.acceptWaveform(
-          {
-            samples:
-              samples16k,
-
-            sampleRate:
-              16000
-          }
-        );
-
-        setStatus(
-          "辨識中…",
-          "loading"
-        );
-
-        let result;
-
-        /*
-          新 API
-        */
-        if (
-          typeof recognizer.decodeAsync ===
-          "function"
-        ) {
-
-          result =
-            await recognizer.decodeAsync(
-              stream
-            );
-
-        } else {
-
-          /*
-            舊 API fallback
-          */
-          recognizer.decode(
-            stream
-          );
-
-          result =
-            recognizer.getResult(
-              stream
-            );
-        }
-
-        /*
-          有些版本 decodeAsync
-          不直接回傳 result。
-        */
-        if (
-          !result ||
-          typeof result.text !==
-            "string"
-        ) {
-          result =
-            recognizer.getResult(
-              stream
-            );
-        }
-
-        const text =
-          result &&
-          typeof result.text ===
-            "string"
-            ? result.text.trim()
-            : "";
-
-        if (text) {
-
-          resultBox.value =
-            text;
-
-        } else {
-
-          resultBox.value =
-            "（沒有辨識到文字）";
-        }
-
-        console.log(
-          "SenseVoice result:",
-          result
-        );
-
-        setStatus(
-          "辨識完成，可以再次錄音",
-          "ready"
-        );
-
-      } catch (error) {
-
-        showError(
-          `辨識失敗：${
-            error instanceof Error
-              ? error.message
-              : String(error)
-          }`
-        );
-
-      } finally {
-
-        micBtn.disabled =
-          !recognizer;
-
-        loadBtn.disabled =
-          false;
-      }
-    }
-
-    /* =========================================================
-       Buttons
-       ========================================================= */
-
-    loadBtn.addEventListener(
-      "click",
-      async () => {
-
-        try {
-          await loadModel();
-        } catch (error) {
-          showError(error);
-        }
-
-      }
+    throw new Error(
+      "模型尚未載入。"
     );
 
-    micBtn.addEventListener(
-      "click",
-      async () => {
+  }
 
-        try {
 
-          clearError();
-
-          if (!isRecording) {
-            await startRecording();
-          } else {
-            await stopRecording();
-          }
-
-        } catch (error) {
-
-          showError(error);
-
-          isRecording =
-            false;
-
-          micBtn.textContent =
-            "開始錄音";
-
-          micBtn.classList.remove(
-            "recording"
-          );
-
-          micBtn.disabled =
-            !recognizer;
-
-          loadBtn.disabled =
-            false;
-        }
-
-      }
-    );
-
-    clearBtn.addEventListener(
-      "click",
-      () => {
-
-        resultBox.value = "";
-
-        clearError();
-
-        if (recognizer) {
-          setStatus(
-            "模型已載入，可以開始錄音",
-            "ready"
-          );
+  mediaStream =
+    await navigator.mediaDevices.getUserMedia(
+      {
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
         }
       }
     );
 
-    /* =========================================================
-       Lifecycle
-       ========================================================= */
 
-    window.addEventListener(
-      "beforeunload",
-      () => {
+  audioContext =
+    new (
+      window.AudioContext ||
+      window.webkitAudioContext
+    )();
 
-        if (mediaStream) {
 
-          for (
-            const track
-            of mediaStream.getTracks()
-          ) {
-            try {
-              track.stop();
-            } catch (_) {}
-          }
-        }
+  await audioContext.resume();
 
-        if (audioContext) {
-          try {
-            audioContext.close();
-          } catch (_) {}
-        }
 
-      }
+  sourceNode =
+    audioContext.createMediaStreamSource(
+      mediaStream
     );
 
-    /* =========================================================
-       Service Worker
-       ========================================================= */
 
-    if (
-      "serviceWorker" in navigator
+  /*
+   * ScriptProcessorNode 雖然是 deprecated，
+   * 但目前 Safari / iOS 相容性仍然實用。
+   */
+
+  processorNode =
+    audioContext.createScriptProcessor(
+      4096,
+      1,
+      1
+    );
+
+
+  silentGain =
+    audioContext.createGain();
+
+  silentGain.gain.value =
+    0;
+
+
+  audioChunks = [];
+
+
+  processorNode.onaudioprocess =
+    function(event) {
+
+      const input =
+        event.inputBuffer.getChannelData(0);
+
+      audioChunks.push(
+        new Float32Array(input)
+      );
+
+    };
+
+
+  sourceNode.connect(
+    processorNode
+  );
+
+  processorNode.connect(
+    silentGain
+  );
+
+  silentGain.connect(
+    audioContext.destination
+  );
+
+
+  isRecording = true;
+
+  micBtn.textContent =
+    "⏹ 停止錄音";
+
+  micBtn.classList.add(
+    "recording"
+  );
+
+  progressText.textContent =
+    "正在錄音，請說話...";
+
+}
+
+
+/* ================================================================
+   Stop microphone
+   ================================================================ */
+
+async function stopRecording() {
+
+  if (!isRecording) {
+    return;
+  }
+
+
+  isRecording = false;
+
+
+  micBtn.textContent =
+    "🎤 開始錄音";
+
+  micBtn.classList.remove(
+    "recording"
+  );
+
+
+  if (processorNode) {
+
+    processorNode.disconnect();
+
+    processorNode.onaudioprocess =
+      null;
+
+  }
+
+
+  if (sourceNode) {
+
+    sourceNode.disconnect();
+
+  }
+
+
+  if (silentGain) {
+
+    silentGain.disconnect();
+
+  }
+
+
+  if (mediaStream) {
+
+    for (
+      const track
+      of mediaStream.getTracks()
     ) {
 
-      window.addEventListener(
-        "load",
-        async () => {
+      track.stop();
 
-          try {
+    }
 
-            await navigator.serviceWorker.register(
-              "./sw.js"
-            );
+  }
+
+
+  const chunks =
+    audioChunks;
+
+  audioChunks = [];
+
+
+  let totalLength = 0;
+
+  for (
+    const chunk
+    of chunks
+  ) {
+
+    totalLength +=
+      chunk.length;
+
+  }
+
+
+  const samples =
+    new Float32Array(
+      totalLength
+    );
+
+
+  let offset = 0;
+
+
+  for (
+    const chunk
+    of chunks
+  ) {
+
+    samples.set(
+      chunk,
+      offset
+    );
+
+    offset +=
+      chunk.length;
+
+  }
+
+
+  if (
+    samples.length < 1000
+  ) {
+
+    progressText.textContent =
+      "錄音太短，請再試一次。";
+
+    return;
+
+  }
+
+
+  progressText.textContent =
+    "正在辨識...";
+
+
+  try {
+
+    const inputRate =
+      audioContext
+        ? audioContext.sampleRate
+        : 48000;
+
+
+    const audio16k =
+      resampleLinear(
+        samples,
+        inputRate,
+        16000
+      );
+
+
+    logDebug(
+      `錄音 sample rate: ${inputRate} Hz`
+    );
+
+    logDebug(
+      `送入辨識: ${audio16k.length} samples`
+    );
+
+
+    const stream =
+      recognizer.createStream();
+
+
+    stream.acceptWaveform(
+      {
+        samples:
+          audio16k,
+
+        sampleRate:
+          16000
+      }
+    );
+
+
+    if (
+      typeof recognizer.decodeAsync ===
+      "function"
+    ) {
+
+      await recognizer.decodeAsync(
+        stream
+      );
+
+    } else {
+
+      recognizer.decode(
+        stream
+      );
+
+    }
+
+
+    const result =
+      recognizer.getResult(
+        stream
+      );
+
+
+    const text =
+      result &&
+      typeof result.text === "string"
+        ? result.text
+        : "";
+
+
+    if (text.trim()) {
+
+      resultText.value +=
+        (
+          resultText.value
+            ? "\n"
+            : ""
+        ) +
+        text.trim();
+
+    } else {
+
+      progressText.textContent =
+        "沒有辨識到文字，請再試一次。";
+
+      return;
+
+    }
+
+
+    progressText.textContent =
+      "辨識完成";
+
+  } catch (error) {
+
+    console.error(error);
+
+    progressText.textContent =
+      "辨識失敗：" +
+      (
+        error.message ||
+        String(error)
+      );
+
+  } finally {
+
+    if (audioContext) {
+
+      try {
+        await audioContext.close();
+      } catch (_) {}
+
+      audioContext =
+        null;
+
+    }
+
+  }
+}
+
+
+/* ================================================================
+   Buttons
+   ================================================================ */
+
+loadModelBtn.addEventListener(
+  "click",
+  async function() {
+
+    try {
+
+      await loadModel();
+
+    } catch (error) {
+
+      console.error(
+        "loadModel:",
+        error
+      );
+
+    }
+
+  }
+);
+
+
+micBtn.addEventListener(
+  "click",
+  async function() {
+
+    try {
+
+      if (isRecording) {
+
+        await stopRecording();
+
+      } else {
+
+        await startRecording();
+
+      }
+
+    } catch (error) {
+
+      console.error(error);
+
+      progressText.textContent =
+        "麥克風錯誤：" +
+        (
+          error.message ||
+          String(error)
+        );
+
+    }
+
+  }
+);
+
+
+clearBtn.addEventListener(
+  "click",
+  function() {
+
+    resultText.value = "";
+
+  }
+);
+
+
+/* ================================================================
+   Service Worker
+   ================================================================ */
+
+if (
+  "serviceWorker" in navigator
+) {
+
+  window.addEventListener(
+    "load",
+    function() {
+
+      navigator.serviceWorker
+        .register("./sw.js")
+        .then(
+          function(registration) {
 
             console.log(
-              "Service Worker registered."
+              "Service Worker registered:",
+              registration.scope
             );
 
-          } catch (error) {
+          }
+        )
+        .catch(
+          function(error) {
 
             console.warn(
               "Service Worker registration failed:",
               error
             );
+
           }
+        );
 
-        }
-      );
     }
+  );
 
-    /* =========================================================
-       Initial
-       ========================================================= */
+}
 
-    setStatus(
-      "尚未載入模型"
-    );
+</script>
 
-    console.log(
-      "SenseVoice initialized."
-    );
-
-  </script>
 </body>
 </html>
