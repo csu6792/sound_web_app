@@ -2,6 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
+
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0, viewport-fit=cover"
@@ -273,6 +274,7 @@
 
 <body>
   <main class="container">
+
     <h1>SenseVoice 語音輸入</h1>
 
     <p class="subtitle">
@@ -280,6 +282,7 @@
     </p>
 
     <section class="card">
+
       <div class="status">
         <span id="statusDot" class="statusDot"></span>
         <span id="statusText">尚未載入模型</span>
@@ -303,22 +306,33 @@
       </div>
 
       <div id="errorBox" class="errorBox"></div>
+
     </section>
 
     <section class="card">
-      <div class="resultLabel">辨識結果</div>
+
+      <div class="resultLabel">
+        辨識結果
+      </div>
 
       <textarea
         id="result"
         placeholder="語音辨識結果會出現在這裡…"
         spellcheck="false"
       ></textarea>
+
     </section>
 
     <section class="card info">
+
       <div>
         <strong>模型：</strong>
         SenseVoice INT8
+      </div>
+
+      <div>
+        <strong>模型來源：</strong>
+        Hugging Face
       </div>
 
       <div>
@@ -330,11 +344,13 @@
         <strong>模式：</strong>
         Offline / CPU
       </div>
+
     </section>
+
   </main>
 
   <!--
-    Emscripten Module 必須在 WASM runtime 載入前先設定。
+    Emscripten Module 必須在 sherpa-onnx WASM JS 載入前設定。
   -->
   <script>
     var Module = {
@@ -351,23 +367,64 @@
     "use strict";
 
     /* =========================================================
+       Hugging Face model
+       ========================================================= */
+
+    const MODEL_URL =
+      "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/resolve/main/model.int8.onnx";
+
+    const TOKENS_URL =
+      "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/resolve/main/tokens.txt";
+
+    /*
+      如果 Hugging Face 更新模型，
+      可以把版本鎖到特定 commit。
+
+      目前先使用 main。
+    */
+
+    const MODEL_CACHE_NAME =
+      "sensevoice-model-v1";
+
+    const MODEL_CACHE_KEY =
+      MODEL_URL;
+
+    /* =========================================================
        DOM
        ========================================================= */
 
-    const loadBtn = document.getElementById("loadBtn");
-    const micBtn = document.getElementById("micBtn");
-    const clearBtn = document.getElementById("clearBtn");
+    const loadBtn =
+      document.getElementById("loadBtn");
 
-    const statusDot = document.getElementById("statusDot");
-    const statusText = document.getElementById("statusText");
+    const micBtn =
+      document.getElementById("micBtn");
 
-    const progressBox = document.getElementById("progressBox");
-    const progressText = document.getElementById("progressText");
-    const progressPercent = document.getElementById("progressPercent");
-    const progressFill = document.getElementById("progressFill");
+    const clearBtn =
+      document.getElementById("clearBtn");
 
-    const resultBox = document.getElementById("result");
-    const errorBox = document.getElementById("errorBox");
+    const statusDot =
+      document.getElementById("statusDot");
+
+    const statusText =
+      document.getElementById("statusText");
+
+    const progressBox =
+      document.getElementById("progressBox");
+
+    const progressText =
+      document.getElementById("progressText");
+
+    const progressPercent =
+      document.getElementById("progressPercent");
+
+    const progressFill =
+      document.getElementById("progressFill");
+
+    const resultBox =
+      document.getElementById("result");
+
+    const errorBox =
+      document.getElementById("errorBox");
 
     /* =========================================================
        State
@@ -376,44 +433,37 @@
     let recognizer = null;
 
     let audioContext = null;
+
     let mediaStream = null;
+
     let sourceNode = null;
+
     let processorNode = null;
+
     let silentGain = null;
 
     let audioChunks = [];
+
     let isRecording = false;
+
     let isLoading = false;
 
     /* =========================================================
-       UI helpers
+       UI
        ========================================================= */
 
-    function setStatus(text, type = "") {
+    function setStatus(
+      text,
+      type = ""
+    ) {
       statusText.textContent = text;
 
-      statusDot.className = "statusDot";
+      statusDot.className =
+        "statusDot";
 
       if (type) {
         statusDot.classList.add(type);
       }
-    }
-
-    function showError(error) {
-      console.error(error);
-
-      let message = "";
-
-      if (error instanceof Error) {
-        message = error.message || String(error);
-      } else {
-        message = String(error);
-      }
-
-      errorBox.textContent = message;
-      errorBox.classList.add("show");
-
-      setStatus("發生錯誤", "error");
     }
 
     function clearError() {
@@ -421,37 +471,30 @@
       errorBox.classList.remove("show");
     }
 
-    function setProgress(received, total, percent) {
-      progressBox.hidden = false;
+    function showError(error) {
+      console.error(error);
 
-      if (total > 0) {
-        progressText.textContent =
-          `下載模型 ${formatBytes(received)} / ${formatBytes(total)}`;
+      const message =
+        error instanceof Error
+          ? error.message
+          : String(error);
 
-        progressPercent.textContent = `${percent}%`;
+      errorBox.textContent =
+        message;
 
-        progressFill.style.width = `${percent}%`;
-      } else {
-        progressText.textContent =
-          `下載模型 ${formatBytes(received)}`;
+      errorBox.classList.add("show");
 
-        progressPercent.textContent = "";
-
-        /*
-          沒有 Content-Length 時不能假裝有準確百分比。
-        */
-        progressFill.style.width = "100%";
-      }
-    }
-
-    function finishProgress() {
-      progressText.textContent = "模型下載完成";
-      progressPercent.textContent = "100%";
-      progressFill.style.width = "100%";
+      setStatus(
+        "發生錯誤",
+        "error"
+      );
     }
 
     function formatBytes(bytes) {
-      if (!Number.isFinite(bytes) || bytes < 0) {
+      if (
+        !Number.isFinite(bytes) ||
+        bytes < 0
+      ) {
         return "0 B";
       }
 
@@ -459,121 +502,329 @@
         return `${bytes} B`;
       }
 
-      if (bytes < 1024 * 1024) {
-        return `${(bytes / 1024).toFixed(1)} KB`;
+      if (
+        bytes <
+        1024 * 1024
+      ) {
+        return `${(
+          bytes / 1024
+        ).toFixed(1)} KB`;
       }
 
-      if (bytes < 1024 * 1024 * 1024) {
-        return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+      if (
+        bytes <
+        1024 * 1024 * 1024
+      ) {
+        return `${(
+          bytes /
+          1024 /
+          1024
+        ).toFixed(1)} MB`;
       }
 
-      return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+      return `${(
+        bytes /
+        1024 /
+        1024 /
+        1024
+      ).toFixed(2)} GB`;
     }
 
-    function sleep(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
+    function setProgress(
+      received,
+      total
+    ) {
+      progressBox.hidden = false;
+
+      if (
+        total > 0 &&
+        Number.isFinite(total)
+      ) {
+        const percent =
+          Math.min(
+            100,
+            Math.floor(
+              received /
+              total *
+              100
+            )
+          );
+
+        progressText.textContent =
+          `下載模型 ${formatBytes(received)} / ${formatBytes(total)}`;
+
+        progressPercent.textContent =
+          `${percent}%`;
+
+        progressFill.style.width =
+          `${percent}%`;
+
+      } else {
+
+        progressText.textContent =
+          `下載模型 ${formatBytes(received)}`;
+
+        progressPercent.textContent =
+          "";
+
+        /*
+          沒有 Content-Length 時，
+          不假裝知道百分比。
+        */
+        progressFill.style.width =
+          "100%";
+      }
+    }
+
+    function finishProgress() {
+      progressText.textContent =
+        "模型下載完成";
+
+      progressPercent.textContent =
+        "100%";
+
+      progressFill.style.width =
+        "100%";
+    }
+
+    /* =========================================================
+       Model Cache
+       ========================================================= */
+
+    async function getCachedModelResponse() {
+      if (
+        !("caches" in window)
+      ) {
+        return null;
+      }
+
+      try {
+        const cache =
+          await caches.open(
+            MODEL_CACHE_NAME
+          );
+
+        return await cache.match(
+          MODEL_CACHE_KEY
+        );
+
+      } catch (error) {
+        console.warn(
+          "Model cache read failed:",
+          error
+        );
+
+        return null;
+      }
+    }
+
+    async function saveModelToCache(
+      response
+    ) {
+      if (
+        !("caches" in window)
+      ) {
+        return;
+      }
+
+      try {
+        const cache =
+          await caches.open(
+            MODEL_CACHE_NAME
+          );
+
+        await cache.put(
+          MODEL_CACHE_KEY,
+          response
+        );
+
+        console.log(
+          "SenseVoice model cached."
+        );
+
+      } catch (error) {
+        /*
+          Cache 失敗不能讓模型載入失敗。
+        */
+        console.warn(
+          "Model cache write failed:",
+          error
+        );
+      }
+    }
+
+    async function clearModelCache() {
+      if (
+        !("caches" in window)
+      ) {
+        return;
+      }
+
+      try {
+        await caches.delete(
+          MODEL_CACHE_NAME
+        );
+      } catch (_) {}
     }
 
     /* =========================================================
        Download
        ========================================================= */
 
-    async function fetchWithProgress(url, onProgress) {
-      const response = await fetch(url, {
-        cache: "no-cache"
-      });
+    async function fetchModelWithProgress(
+      url
+    ) {
+      /*
+        先嘗試 Cache Storage。
+      */
+      const cached =
+        await getCachedModelResponse();
+
+      if (cached) {
+        console.log(
+          "Using cached SenseVoice model."
+        );
+
+        return cached;
+      }
+
+      /*
+        第一次從 Hugging Face 下載。
+      */
+      const response =
+        await fetch(
+          url,
+          {
+            method: "GET",
+            mode: "cors",
+            credentials: "omit",
+            cache: "default"
+          }
+        );
 
       if (!response.ok) {
         throw new Error(
-          `下載失敗：HTTP ${response.status} ${response.statusText}`
+          `Hugging Face 模型下載失敗：HTTP ${response.status} ${response.statusText}`
         );
       }
 
       if (!response.body) {
         throw new Error(
-          "目前瀏覽器不支援 ReadableStream，無法顯示下載進度。"
+          "瀏覽器不支援 ReadableStream，無法顯示模型下載進度。"
         );
       }
 
       /*
-        Content-Length 不是永遠可靠。
+        Clone 一份給 Cache Storage。
 
-        因此：
-        1. 仍然讀取 Content-Length 作為「參考總大小」
-        2. received 永遠使用實際收到的 byte 數
+        原始 response 用來讀取 stream。
       */
-      const headerLength =
-        response.headers.get("Content-Length");
+      const cacheResponse =
+        response.clone();
+
+      /*
+        背景快取。
+
+        不 await，避免阻塞模型下載。
+      */
+      saveModelToCache(
+        cacheResponse
+      );
+
+      return response;
+    }
+
+    async function responseToUint8Array(
+      response,
+      onProgress
+    ) {
+      if (!response.body) {
+        throw new Error(
+          "模型 response 沒有 body。"
+        );
+      }
+
+      const contentLength =
+        response.headers.get(
+          "Content-Length"
+        );
 
       const total =
-        headerLength && Number.isFinite(Number(headerLength))
-          ? Number(headerLength)
+        contentLength &&
+        Number.isFinite(
+          Number(contentLength)
+        )
+          ? Number(contentLength)
           : 0;
 
-      const reader = response.body.getReader();
+      const reader =
+        response.body.getReader();
 
       const chunks = [];
+
       let received = 0;
 
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } =
+          await reader.read();
 
         if (done) {
           break;
         }
 
-        if (value && value.byteLength) {
+        if (
+          value &&
+          value.byteLength
+        ) {
           chunks.push(value);
-          received += value.byteLength;
 
-          if (total > 0) {
-            const percent = Math.min(
-              100,
-              Math.floor((received / total) * 100)
-            );
+          received +=
+            value.byteLength;
 
-            onProgress({
-              received,
-              total,
-              percent
-            });
-          } else {
-            onProgress({
-              received,
-              total: 0,
-              percent: null
-            });
-          }
+          onProgress(
+            received,
+            total
+          );
         }
       }
 
-      /*
-        合併成單一 Uint8Array。
-      */
-      const data = new Uint8Array(received);
+      const data =
+        new Uint8Array(
+          received
+        );
 
       let offset = 0;
 
-      for (const chunk of chunks) {
-        data.set(chunk, offset);
-        offset += chunk.byteLength;
+      for (
+        const chunk of chunks
+      ) {
+        data.set(
+          chunk,
+          offset
+        );
+
+        offset +=
+          chunk.byteLength;
       }
 
-      return {
-        data,
-        received,
-        total
-      };
+      return data;
     }
 
-    async function fetchText(url) {
-      const response = await fetch(url, {
-        cache: "no-cache"
-      });
+    async function fetchTokens() {
+      const response =
+        await fetch(
+          TOKENS_URL,
+          {
+            method: "GET",
+            mode: "cors",
+            credentials: "omit",
+            cache: "default"
+          }
+        );
 
       if (!response.ok) {
         throw new Error(
-          `下載 tokens.txt 失敗：HTTP ${response.status}`
+          `tokens.txt 下載失敗：HTTP ${response.status}`
         );
       }
 
@@ -585,20 +836,12 @@
        ========================================================= */
 
     function getEmscriptenFS() {
-      /*
-        不同 Emscripten build 的 FS 暴露方式可能不同。
-
-        優先：
-          Module.FS
-
-        再嘗試：
-          globalThis.FS
-      */
 
       if (
         typeof Module !== "undefined" &&
         Module.FS &&
-        typeof Module.FS.writeFile === "function"
+        typeof Module.FS.writeFile ===
+          "function"
       ) {
         return Module.FS;
       }
@@ -606,7 +849,8 @@
       if (
         typeof globalThis !== "undefined" &&
         globalThis.FS &&
-        typeof globalThis.FS.writeFile === "function"
+        typeof globalThis.FS.writeFile ===
+          "function"
       ) {
         return globalThis.FS;
       }
@@ -614,45 +858,61 @@
       return null;
     }
 
-    function removeWasmFile(fs, path) {
+    function removeWasmFile(
+      fs,
+      path
+    ) {
       try {
         if (
           fs &&
-          typeof fs.unlink === "function"
+          typeof fs.unlink ===
+            "function"
         ) {
           fs.unlink(path);
         }
-      } catch (_) {
-        /*
-          檔案不存在時忽略。
-        */
-      }
+      } catch (_) {}
     }
 
-    function writeWasmFile(path, data) {
-      const fs = getEmscriptenFS();
+    function writeWasmFile(
+      path,
+      data
+    ) {
+      const fs =
+        getEmscriptenFS();
 
       if (fs) {
-        fs.writeFile(path, data);
+        fs.writeFile(
+          path,
+          data
+        );
+
         return;
       }
 
       /*
-        相容舊版某些 Emscripten build。
+        舊版相容。
       */
       if (
         typeof Module !== "undefined" &&
-        typeof Module.FS_createDataFile === "function"
+        typeof Module.FS_createDataFile ===
+          "function"
       ) {
-        const slash = path.lastIndexOf("/");
+
+        const slash =
+          path.lastIndexOf("/");
 
         const dir =
           slash <= 0
             ? "/"
-            : path.substring(0, slash);
+            : path.substring(
+                0,
+                slash
+              );
 
         const filename =
-          path.substring(slash + 1);
+          path.substring(
+            slash + 1
+          );
 
         Module.FS_createDataFile(
           dir,
@@ -667,24 +927,36 @@
 
       throw new Error(
         [
-          "目前 WebAssembly runtime 沒有暴露可寫入的 Emscripten FS。",
+          "WebAssembly 沒有提供 Emscripten FS。",
           "",
           "找不到：",
-          "  Module.FS.writeFile",
-          "  globalThis.FS.writeFile",
-          "  Module.FS_createDataFile",
+          "Module.FS.writeFile",
+          "globalThis.FS.writeFile",
+          "Module.FS_createDataFile",
           "",
-          "這不是模型下載失敗，而是目前 sherpa-onnx WASM build 的 FS 沒有 export。"
+          "請確認 GitHub Actions 使用本頁提供的 YAML，",
+          "該 YAML 會在編譯 WASM 時 export FS。"
         ].join("\n")
       );
     }
 
-    function writeModelToWasmFS(modelData, tokensText) {
-      const fs = getEmscriptenFS();
+    function writeModelToWasmFS(
+      modelData,
+      tokensText
+    ) {
+      const fs =
+        getEmscriptenFS();
 
       if (fs) {
-        removeWasmFile(fs, "/model.int8.onnx");
-        removeWasmFile(fs, "/tokens.txt");
+        removeWasmFile(
+          fs,
+          "/model.int8.onnx"
+        );
+
+        removeWasmFile(
+          fs,
+          "/tokens.txt"
+        );
       }
 
       writeWasmFile(
@@ -692,9 +964,6 @@
         modelData
       );
 
-      /*
-        Emscripten FS.writeFile 可以直接接受字串。
-      */
       writeWasmFile(
         "/tokens.txt",
         tokensText
@@ -702,76 +971,102 @@
     }
 
     /* =========================================================
-       Model loading
+       Load Model
        ========================================================= */
 
     async function loadModel() {
+
       if (isLoading) {
         return;
       }
 
       if (recognizer) {
-        setStatus("模型已經載入");
+        setStatus(
+          "模型已經載入",
+          "ready"
+        );
+
         return;
       }
 
       isLoading = true;
+
       loadBtn.disabled = true;
 
       clearError();
 
       try {
-        setStatus("準備下載模型…", "loading");
+
+        setStatus(
+          "檢查模型快取…",
+          "loading"
+        );
 
         progressBox.hidden = false;
-        progressText.textContent = "準備下載…";
-        progressPercent.textContent = "0%";
-        progressFill.style.width = "0%";
+
+        progressText.textContent =
+          "準備下載…";
+
+        progressPercent.textContent =
+          "0%";
+
+        progressFill.style.width =
+          "0%";
 
         /*
-          SenseVoice INT8 model
+          Hugging Face
         */
-        const modelResult =
-          await fetchWithProgress(
-            "./assets/model.int8.onnx",
-            progress => {
+        const modelResponse =
+          await fetchModelWithProgress(
+            MODEL_URL
+          );
+
+        setStatus(
+          "下載 SenseVoice INT8 模型…",
+          "loading"
+        );
+
+        const modelData =
+          await responseToUint8Array(
+            modelResponse,
+            (
+              received,
+              total
+            ) => {
               setProgress(
-                progress.received,
-                progress.total,
-                progress.percent
+                received,
+                total
               );
             }
           );
 
-        const modelData = modelResult.data;
-
-        /*
-          如果 server 有 Content-Length，
-          檢查實際收到的 byte 數。
-        */
-        console.log(
-          "SenseVoice model received:",
-          modelResult.received,
-          "bytes"
-        );
-
         console.log(
           "SenseVoice model:",
-          formatBytes(modelResult.received)
+          formatBytes(
+            modelData.byteLength
+          )
         );
+
+        finishProgress();
 
         /*
           tokens.txt
         */
-        setStatus("下載 tokens.txt…", "loading");
+        setStatus(
+          "下載 tokens.txt…",
+          "loading"
+        );
 
         const tokensText =
-          await fetchText("./assets/tokens.txt");
+          await fetchTokens();
 
         /*
-          寫入 Emscripten virtual filesystem。
+          寫入 WASM FS
         */
-        setStatus("準備 WebAssembly 模型…", "loading");
+        setStatus(
+          "準備 WebAssembly 模型…",
+          "loading"
+        );
 
         writeModelToWasmFS(
           modelData,
@@ -779,167 +1074,177 @@
         );
 
         /*
-          modelData 已經寫入 WASM FS。
-          JS 這邊可以解除 reference。
+          建立 OfflineRecognizer
         */
-        console.log(
-          "Model written to Emscripten FS:",
-          formatBytes(modelData.byteLength)
+        setStatus(
+          "初始化 SenseVoice…",
+          "loading"
         );
 
-        /*
-          建立 recognizer。
+        recognizer =
+          new OfflineRecognizer(
+            {
+              featConfig: {
+                sampleRate: 16000,
+                featureDim: 80
+              },
 
-          官方 SenseVoice config 使用：
-            model
-            tokens
-            language
-            useInverseTextNormalization
-        */
-        setStatus("初始化 SenseVoice…", "loading");
+              modelConfig: {
+                tokens:
+                  "./tokens.txt",
 
-        recognizer = new OfflineRecognizer(
-          {
-            featConfig: {
-              sampleRate: 16000,
-              featureDim: 80
+                numThreads: 2,
+
+                provider: "cpu",
+
+                debug: 0,
+
+                senseVoice: {
+                  model:
+                    "./model.int8.onnx",
+
+                  /*
+                    SenseVoice 語言：
+
+                    zh = 中文
+                    en = 英文
+                    ja = 日文
+                    ko = 韓文
+                    yue = 粵語
+
+                    目前預設中文。
+                  */
+                  language: "zh",
+
+                  useInverseTextNormalization:
+                    1
+                }
+              },
+
+              decodingMethod:
+                "greedy_search"
             },
 
-            modelConfig: {
-              tokens: "./tokens.txt",
-
-              numThreads: 2,
-
-              provider: "cpu",
-
-              debug: 0,
-
-              senseVoice: {
-                model: "./model.int8.onnx",
-
-                /*
-                  zh：
-                  中文
-
-                  也可以改成：
-                    auto
-                    en
-                    ja
-                    ko
-                    yue
-                */
-                language: "zh",
-
-                useInverseTextNormalization: 1
-              }
-            },
-
-            decodingMethod: "greedy_search"
-          },
-          Module
-        );
-
-        finishProgress();
+            Module
+          );
 
         setStatus(
           "模型已載入，可以開始錄音",
           "ready"
         );
 
-        micBtn.disabled = false;
-
-        /*
-          給 UI 一點時間更新。
-        */
-        await sleep(100);
+        micBtn.disabled =
+          false;
 
       } catch (error) {
+
         recognizer = null;
 
         showError(
-          `載入失敗：${error instanceof Error ? error.message : String(error)}`
+          `載入失敗：${
+            error instanceof Error
+              ? error.message
+              : String(error)
+          }`
         );
 
       } finally {
+
         isLoading = false;
-        loadBtn.disabled = false;
+
+        loadBtn.disabled =
+          false;
       }
     }
 
     /* =========================================================
-       Audio helpers
+       Audio
        ========================================================= */
 
-    function mergeFloat32Arrays(chunks) {
+    function mergeFloat32Arrays(
+      chunks
+    ) {
       let totalLength = 0;
 
-      for (const chunk of chunks) {
-        totalLength += chunk.length;
+      for (
+        const chunk of chunks
+      ) {
+        totalLength +=
+          chunk.length;
       }
 
-      const result = new Float32Array(totalLength);
+      const result =
+        new Float32Array(
+          totalLength
+        );
 
       let offset = 0;
 
-      for (const chunk of chunks) {
-        result.set(chunk, offset);
-        offset += chunk.length;
+      for (
+        const chunk of chunks
+      ) {
+        result.set(
+          chunk,
+          offset
+        );
+
+        offset +=
+          chunk.length;
       }
 
       return result;
     }
 
     /*
-      線性重採樣。
+      Linear resampler。
 
-      麥克風在 iPhone / Safari 常見 48000 Hz，
-      SenseVoice 模型需要 16000 Hz。
-
-      這裡把錄音資料轉成 16000 Hz。
+      iPhone Safari 常見 48000 Hz，
+      SenseVoice 使用 16000 Hz。
     */
     function resampleLinear(
       input,
       inputSampleRate,
       outputSampleRate
     ) {
+
       if (
-        inputSampleRate === outputSampleRate
+        inputSampleRate ===
+        outputSampleRate
       ) {
         return input;
       }
 
-      if (
-        !Number.isFinite(inputSampleRate) ||
-        !Number.isFinite(outputSampleRate) ||
-        inputSampleRate <= 0 ||
-        outputSampleRate <= 0
-      ) {
-        throw new Error(
-          "無效的音訊 sample rate"
-        );
-      }
-
       const ratio =
-        inputSampleRate / outputSampleRate;
+        inputSampleRate /
+        outputSampleRate;
 
       const outputLength =
         Math.max(
           1,
-          Math.round(input.length / ratio)
+          Math.round(
+            input.length /
+            ratio
+          )
         );
 
       const output =
-        new Float32Array(outputLength);
+        new Float32Array(
+          outputLength
+        );
 
       for (
         let i = 0;
         i < outputLength;
         i++
       ) {
-        const position = i * ratio;
+
+        const position =
+          i * ratio;
 
         const index =
-          Math.floor(position);
+          Math.floor(
+            position
+          );
 
         const fraction =
           position - index;
@@ -961,17 +1266,20 @@
           ];
 
         output[i] =
-          a + (b - a) * fraction;
+          a +
+          (b - a) *
+          fraction;
       }
 
       return output;
     }
 
     /* =========================================================
-       Microphone
+       Start Recording
        ========================================================= */
 
     async function startRecording() {
+
       if (!recognizer) {
         throw new Error(
           "請先載入模型。"
@@ -984,133 +1292,114 @@
 
       clearError();
 
-      try {
-        /*
-          要求麥克風。
-
-          不強制 16000，
-          因為瀏覽器可能不接受該設定。
-
-          實際 sample rate 之後再重採樣。
-        */
-        mediaStream =
-          await navigator.mediaDevices.getUserMedia(
-            {
-              audio: {
-                channelCount: 1,
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
-              }
+      mediaStream =
+        await navigator.mediaDevices.getUserMedia(
+          {
+            audio: {
+              channelCount: 1,
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
             }
-          );
-
-        audioContext =
-          new (
-            window.AudioContext ||
-            window.webkitAudioContext
-          )();
-
-        if (
-          audioContext.state === "suspended"
-        ) {
-          await audioContext.resume();
-        }
-
-        const actualSampleRate =
-          audioContext.sampleRate;
-
-        console.log(
-          "AudioContext sample rate:",
-          actualSampleRate
+          }
         );
 
-        sourceNode =
-          audioContext.createMediaStreamSource(
-            mediaStream
-          );
+      audioContext =
+        new (
+          window.AudioContext ||
+          window.webkitAudioContext
+        )();
 
-        /*
-          ScriptProcessor 已經是 deprecated，
-          但目前這份 sherpa-onnx 網頁版本不需要另外引入
-          AudioWorklet，先維持最簡單相容方案。
-        */
-        processorNode =
-          audioContext.createScriptProcessor(
-            4096,
-            1,
-            1
-          );
-
-        silentGain =
-          audioContext.createGain();
-
-        silentGain.gain.value = 0;
-
-        audioChunks = [];
-
-        processorNode.onaudioprocess =
-          event => {
-            if (!isRecording) {
-              return;
-            }
-
-            const input =
-              event.inputBuffer.getChannelData(0);
-
-            /*
-              copy 出來。
-
-              不能直接保存 input，
-              因為下一個 callback 會重用 buffer。
-            */
-            audioChunks.push(
-              new Float32Array(input)
-            );
-          };
-
-        sourceNode.connect(
-          processorNode
-        );
-
-        /*
-          必須接到 destination 才能讓部分瀏覽器
-          持續處理 ScriptProcessor。
-
-          gain=0，所以不會把麥克風聲音播出來。
-        */
-        processorNode.connect(
-          silentGain
-        );
-
-        silentGain.connect(
-          audioContext.destination
-        );
-
-        isRecording = true;
-
-        micBtn.textContent =
-          "停止錄音";
-
-        micBtn.classList.add(
-          "recording"
-        );
-
-        loadBtn.disabled = true;
-
-        setStatus(
-          `錄音中（${actualSampleRate} Hz）…`,
-          "recording"
-        );
-
-      } catch (error) {
-        stopAudioNodes();
-
-        throw error;
+      if (
+        audioContext.state ===
+        "suspended"
+      ) {
+        await audioContext.resume();
       }
+
+      const sampleRate =
+        audioContext.sampleRate;
+
+      console.log(
+        "Audio sample rate:",
+        sampleRate
+      );
+
+      sourceNode =
+        audioContext.createMediaStreamSource(
+          mediaStream
+        );
+
+      processorNode =
+        audioContext.createScriptProcessor(
+          4096,
+          1,
+          1
+        );
+
+      silentGain =
+        audioContext.createGain();
+
+      silentGain.gain.value =
+        0;
+
+      audioChunks = [];
+
+      processorNode.onaudioprocess =
+        event => {
+
+          if (!isRecording) {
+            return;
+          }
+
+          const input =
+            event.inputBuffer.getChannelData(
+              0
+            );
+
+          audioChunks.push(
+            new Float32Array(
+              input
+            )
+          );
+        };
+
+      sourceNode.connect(
+        processorNode
+      );
+
+      processorNode.connect(
+        silentGain
+      );
+
+      silentGain.connect(
+        audioContext.destination
+      );
+
+      isRecording = true;
+
+      micBtn.textContent =
+        "停止錄音";
+
+      micBtn.classList.add(
+        "recording"
+      );
+
+      loadBtn.disabled =
+        true;
+
+      setStatus(
+        `錄音中（${sampleRate} Hz）…`,
+        "recording"
+      );
     }
 
-    function stopAudioNodes() {
+    /* =========================================================
+       Stop Recording
+       ========================================================= */
+
+    function disconnectAudio() {
+
       if (processorNode) {
         try {
           processorNode.disconnect();
@@ -1130,7 +1419,11 @@
       }
 
       if (mediaStream) {
-        for (const track of mediaStream.getTracks()) {
+
+        for (
+          const track
+          of mediaStream.getTracks()
+        ) {
           try {
             track.stop();
           } catch (_) {}
@@ -1144,6 +1437,7 @@
     }
 
     async function stopRecording() {
+
       if (!isRecording) {
         return;
       }
@@ -1157,20 +1451,29 @@
         "recording"
       );
 
-      stopAudioNodes();
+      loadBtn.disabled =
+        true;
 
-      loadBtn.disabled = true;
-      micBtn.disabled = true;
+      micBtn.disabled =
+        true;
+
+      const currentAudioContext =
+        audioContext;
+
+      const originalSampleRate =
+        currentAudioContext
+          ? currentAudioContext.sampleRate
+          : 48000;
+
+      disconnectAudio();
 
       try {
+
         setStatus(
           "整理錄音…",
           "loading"
         );
 
-        /*
-          合併所有 callback 的 samples。
-        */
         const inputSamples =
           mergeFloat32Arrays(
             audioChunks
@@ -1178,29 +1481,26 @@
 
         audioChunks = [];
 
-        if (inputSamples.length === 0) {
+        if (
+          inputSamples.length === 0
+        ) {
           throw new Error(
             "沒有取得任何麥克風音訊。"
           );
         }
 
-        const inputSampleRate =
-          audioContext
-            ? audioContext.sampleRate
-            : 48000;
-
         /*
-          轉成 SenseVoice 所需要的 16000 Hz。
+          16 kHz
         */
         setStatus(
-          "轉換音訊…",
+          "轉換成 16 kHz…",
           "loading"
         );
 
         const samples16k =
           resampleLinear(
             inputSamples,
-            inputSampleRate,
+            originalSampleRate,
             16000
           );
 
@@ -1215,89 +1515,103 @@
         );
 
         /*
-          建立 offline stream。
+          關閉 AudioContext
+        */
+        if (
+          currentAudioContext
+        ) {
+          try {
+            await currentAudioContext.close();
+          } catch (_) {}
+        }
+
+        audioContext =
+          null;
+
+        /*
+          建立 recognizer stream
         */
         const stream =
           recognizer.createStream();
 
-        stream.acceptWaveform({
-          samples: samples16k,
-          sampleRate: 16000
-        });
+        stream.acceptWaveform(
+          {
+            samples:
+              samples16k,
 
-        /*
-          關閉 AudioContext。
+            sampleRate:
+              16000
+          }
+        );
 
-          這樣手機瀏覽器可以釋放音訊資源。
-        */
-        if (audioContext) {
-          try {
-            await audioContext.close();
-          } catch (_) {}
-        }
-
-        audioContext = null;
-
-        /*
-          使用 decodeAsync。
-
-          官方 API 有提供 decodeAsync，
-          可以避免同步 decode 長時間阻塞主執行緒。
-        */
         setStatus(
           "辨識中…",
           "loading"
         );
 
-        let decodedResult = null;
+        let result;
 
+        /*
+          新 API
+        */
         if (
           typeof recognizer.decodeAsync ===
           "function"
         ) {
-          decodedResult =
+
+          result =
             await recognizer.decodeAsync(
               stream
             );
-        } else {
-          /*
-            舊版本 fallback。
-          */
-          recognizer.decode(stream);
 
-          decodedResult =
-            recognizer.getResult(stream);
+        } else {
+
+          /*
+            舊 API fallback
+          */
+          recognizer.decode(
+            stream
+          );
+
+          result =
+            recognizer.getResult(
+              stream
+            );
         }
 
-        const result =
-          decodedResult ||
-          recognizer.getResult(stream);
+        /*
+          有些版本 decodeAsync
+          不直接回傳 result。
+        */
+        if (
+          !result ||
+          typeof result.text !==
+            "string"
+        ) {
+          result =
+            recognizer.getResult(
+              stream
+            );
+        }
 
         const text =
-          result && typeof result.text === "string"
+          result &&
+          typeof result.text ===
+            "string"
             ? result.text.trim()
             : "";
 
         if (text) {
-          /*
-            新的一次辨識結果直接取代。
-          */
-          resultBox.value = text;
-        } else {
+
           resultBox.value =
-            resultBox.value ||
+            text;
+
+        } else {
+
+          resultBox.value =
             "（沒有辨識到文字）";
         }
 
-        /*
-          SenseVoice 可能回傳：
-            lang
-            emotion
-            event
-
-          如果有資料，寫到 console，
-          不把它混進使用者的文字。
-        */
         console.log(
           "SenseVoice result:",
           result
@@ -1309,11 +1623,17 @@
         );
 
       } catch (error) {
+
         showError(
-          `辨識失敗：${error instanceof Error ? error.message : String(error)}`
+          `辨識失敗：${
+            error instanceof Error
+              ? error.message
+              : String(error)
+          }`
         );
 
       } finally {
+
         micBtn.disabled =
           !recognizer;
 
@@ -1323,24 +1643,28 @@
     }
 
     /* =========================================================
-       Button events
+       Buttons
        ========================================================= */
 
     loadBtn.addEventListener(
       "click",
       async () => {
+
         try {
           await loadModel();
         } catch (error) {
           showError(error);
         }
+
       }
     );
 
     micBtn.addEventListener(
       "click",
       async () => {
+
         try {
+
           clearError();
 
           if (!isRecording) {
@@ -1348,10 +1672,13 @@
           } else {
             await stopRecording();
           }
+
         } catch (error) {
+
           showError(error);
 
-          isRecording = false;
+          isRecording =
+            false;
 
           micBtn.textContent =
             "開始錄音";
@@ -1363,15 +1690,19 @@
           micBtn.disabled =
             !recognizer;
 
-          loadBtn.disabled = false;
+          loadBtn.disabled =
+            false;
         }
+
       }
     );
 
     clearBtn.addEventListener(
       "click",
       () => {
+
         resultBox.value = "";
+
         clearError();
 
         if (recognizer) {
@@ -1384,15 +1715,18 @@
     );
 
     /* =========================================================
-       Page lifecycle
+       Lifecycle
        ========================================================= */
 
     window.addEventListener(
       "beforeunload",
       () => {
+
         if (mediaStream) {
+
           for (
-            const track of mediaStream.getTracks()
+            const track
+            of mediaStream.getTracks()
           ) {
             try {
               track.stop();
@@ -1405,6 +1739,7 @@
             audioContext.close();
           } catch (_) {}
         }
+
       }
     );
 
@@ -1415,10 +1750,13 @@
     if (
       "serviceWorker" in navigator
     ) {
+
       window.addEventListener(
         "load",
         async () => {
+
           try {
+
             await navigator.serviceWorker.register(
               "./sw.js"
             );
@@ -1426,18 +1764,21 @@
             console.log(
               "Service Worker registered."
             );
+
           } catch (error) {
+
             console.warn(
               "Service Worker registration failed:",
               error
             );
           }
+
         }
       );
     }
 
     /* =========================================================
-       Initial state
+       Initial
        ========================================================= */
 
     setStatus(
@@ -1445,8 +1786,9 @@
     );
 
     console.log(
-      "SenseVoice page initialized."
+      "SenseVoice initialized."
     );
+
   </script>
 </body>
 </html>
