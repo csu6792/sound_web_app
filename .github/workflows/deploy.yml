@@ -1,8 +1,9 @@
-name: Build SenseVoice and Deploy Pages
+name: Build SenseVoice Web
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -31,82 +32,98 @@ jobs:
       - name: Install Emscripten
         shell: bash
         run: |
-          git clone --depth 1 --branch 4.0.23 https://github.com/emscripten-core/emsdk.git
+          git clone --depth 1 --branch 4.0.23 \
+            https://github.com/emscripten-core/emsdk.git
+
           cd emsdk
           ./emsdk install 4.0.23
           ./emsdk activate 4.0.23
 
-      - name: Prepare SenseVoice model BEFORE WASM build
+      - name: Build WebAssembly
         shell: bash
         run: |
-          mkdir -p sherpa-onnx/wasm/asr/assets
+          source emsdk/emsdk_env.sh
+
+          cd sherpa-onnx
+
+          mkdir -p build-web
+
+          cd build-web
+
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=$EMSDK/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
+            -DCMAKE_INSTALL_PREFIX=./install \
+            -DSHERPA_ONNX_ENABLE_PYTHON=OFF \
+            -DSHERPA_ONNX_ENABLE_TESTS=OFF \
+            -DSHERPA_ONNX_ENABLE_CHECK=OFF \
+            -DSHERPA_ONNX_ENABLE_PORTAUDIO=OFF \
+            -DSHERPA_ONNX_ENABLE_JNI=OFF \
+            -DSHERPA_ONNX_ENABLE_TTS=OFF \
+            -DSHERPA_ONNX_ENABLE_WEBSOCKET=OFF \
+            -DSHERPA_ONNX_ENABLE_GPU=OFF \
+            -DSHERPA_ONNX_ENABLE_WASM=ON \
+            -DSHERPA_ONNX_ENABLE_WASM_ASR=ON \
+            -DSHERPA_ONNX_ENABLE_WASM_WEB=ON \
+            -DSHERPA_ONNX_ENABLE_BINARY=OFF
+
+          make -j2
+          make install
+
+      - name: Download SenseVoice INT8
+        shell: bash
+        run: |
+          mkdir -p public/assets
 
           curl -L --fail --retry 3 \
             "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09.tar.bz2" \
             -o /tmp/sensevoice.tar.bz2
 
-          tar -xjf /tmp/sensevoice.tar.bz2 -C /tmp
+          mkdir -p /tmp/sensevoice
 
-          cp \
-            /tmp/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/model.int8.onnx \
-            sherpa-onnx/wasm/asr/assets/model.int8.onnx
+          tar -xjf /tmp/sensevoice.tar.bz2 \
+            -C /tmp/sensevoice \
+            --strip-components=1
 
-          cp \
-            /tmp/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/tokens.txt \
-            sherpa-onnx/wasm/asr/assets/tokens.txt
+          cp /tmp/sensevoice/model.int8.onnx \
+            public/assets/model.int8.onnx
 
-          ls -lh sherpa-onnx/wasm/asr/assets/
+          cp /tmp/sensevoice/tokens.txt \
+            public/assets/tokens.txt
 
-      - name: Build sherpa-onnx WebAssembly
+      - name: Copy WebAssembly files
         shell: bash
         run: |
-          cd sherpa-onnx
-          source ../emsdk/emsdk_env.sh
-          ./build-wasm-simd-asr.sh
+          find sherpa-onnx/build-web/install/bin/wasm \
+            -type f \
+            -maxdepth 4 \
+            -print
 
-      - name: Assemble GitHub Pages
-        shell: bash
+          cp $(find sherpa-onnx/build-web/install/bin/wasm \
+            -name "*.js" | head -1) \
+            public/assets/sherpa-onnx.js
+
+          cp $(find sherpa-onnx/build-web/install/bin/wasm \
+            -name "*.wasm" | head -1) \
+            public/assets/sherpa-onnx.wasm
+
+      - name: Copy website
         run: |
-          mkdir -p public/assets
-
-          cp index.html public/
-          cp sw.js public/
-
-          cp \
-            sherpa-onnx/build-wasm-simd-asr/install/bin/wasm/asr/sherpa-onnx-wasm-main-asr.js \
-            public/assets/
-
-          cp \
-            sherpa-onnx/build-wasm-simd-asr/install/bin/wasm/asr/sherpa-onnx-wasm-main-asr.wasm \
-            public/assets/
-
-          cp \
-            sherpa-onnx/wasm/asr/sherpa-onnx-asr.js \
-            public/assets/
-
-          cp \
-            sherpa-onnx/wasm/asr/assets/model.int8.onnx \
-            public/assets/
-
-          cp \
-            sherpa-onnx/wasm/asr/assets/tokens.txt \
-            public/assets/
-
+          cp index.html public/index.html
+          cp sw.js public/sw.js
           touch public/.nojekyll
 
-          echo "===== Final files ====="
-          ls -lh public/assets/
-
-      - name: Configure GitHub Pages
+      - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload Pages artifact
+      - name: Upload Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: public
 
   deploy:
     needs: build
+
     runs-on: ubuntu-22.04
 
     environment:
