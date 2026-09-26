@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SenseVoice 離線中文語音輸入</title>
+<style>
+body{margin:0;background:#0b1020;color:#edf2fb;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC",sans-serif}
+main{max-width:700px;margin:auto;padding:24px 16px}.box{background:#121a2b;border:1px solid #293650;border-radius:20px;padding:20px}
+h1{font-size:23px;margin:0 0 5px}.sub{color:#95a3ba;font-size:13px;margin-bottom:18px}
+button{border:0;border-radius:12px;padding:13px 17px;margin:3px;background:#3272ed;color:white;font-weight:700;font-size:15px}
+button:disabled{opacity:.45}button.gray{background:#29364c}button.stop{background:#bd4054}
+#status{margin:14px 3px;padding:11px;border-radius:10px;background:#0c1423;color:#bac5d8;font-size:13px}
+textarea{width:100%;height:250px;box-sizing:border-box;border-radius:14px;background:#080d17;color:white;border:1px solid #2a3854;padding:15px;font-size:20px;line-height:1.6}
+small{color:#8492a9}
+</style>
+</head>
+<body><main><div class="box">
+<h1>🎙 SenseVoice INT8</h1>
+<div class="sub">sherpa-onnx · iPhone 瀏覽器離線中文語音輸入</div>
+<button id="load">① 載入模型</button>
+<button id="mic" disabled>② 開始說話</button>
+<button id="clear" class="gray">清除</button>
+<div id="status">等待載入模型。</div>
+<textarea id="out" placeholder="辨識結果…"></textarea>
+<p><small>第一次載入需要下載模型；完成快取後可離線使用。請用 GitHub Pages HTTPS 並允許麥克風。</small></p>
+</div></main>
+
+<script>
+var Module={locateFile:p=>"./assets/"+p};
+</script>
+<script src="./assets/sherpa-onnx-asr.js"></script>
+<script src="./assets/sherpa-onnx-wasm-main-asr.js"></script>
+<script>
+const $=x=>document.getElementById(x);
+let rec=null,st=null,ctx=null,src=null,proc=null,mic=null,running=false;
+const say=x=>$("status").textContent=x;
+
+async function load(){
+ $("load").disabled=true;say("正在載入 SenseVoice INT8…");
+ try{
+  const cache=await caches.open("sensevoice-model");
+  let mr=await cache.match("./assets/model.int8.onnx");
+  if(!mr){mr=await fetch("./assets/model.int8.onnx");if(!mr.ok)throw Error("模型下載失敗");await cache.put("./assets/model.int8.onnx",mr.clone())}
+  let tr=await cache.match("./assets/tokens.txt");
+  if(!tr){tr=await fetch("./assets/tokens.txt");await cache.put("./assets/tokens.txt",tr.clone())}
+  const mb=await mr.arrayBuffer(), tt=await tr.text();
+  Module.FS_createDataFile("/","model.int8.onnx",new Uint8Array(mb),true,true);
+  Module.FS_createDataFile("/","tokens.txt",tt,true,true);
+  rec=new OfflineRecognizer({
+   featConfig:{sampleRate:16000,featureDim:80},
+   modelConfig:{tokens:"./tokens.txt",numThreads:2,provider:"cpu",debug:0,
+    senseVoice:{model:"./model.int8.onnx",language:"zh",useInverseTextNormalization:1}},
+   decodingMethod:"greedy_search"
+  },Module);
+  $("mic").disabled=false;say("模型已載入，可以開始說話。");
+ }catch(e){console.error(e);say("載入失敗："+e.message);$("load").disabled=false}
+}
+async function start(){
+ if(running){await stop();return}
+ try{
+  mic=await navigator.mediaDevices.getUserMedia({audio:true});
+  ctx=new AudioContext({sampleRate:16000});
+  src=ctx.createMediaStreamSource(mic);
+  proc=ctx.createScriptProcessor(4096,1,1);
+  st=rec.createStream();
+  proc.onaudioprocess=e=>{
+   const a=new Float32Array(e.inputBuffer.getChannelData(0));
+   st.acceptWaveform(ctx.sampleRate,a);rec.decode(st);
+   const r=rec.getResult(st);if(r.text)$("out").value=r.text;
+  };
+  src.connect(proc);proc.connect(ctx.destination);running=true;
+  $("mic").textContent="⏹ 停止";$("mic").classList.add("stop");say("錄音中…");
+ }catch(e){say("麥克風錯誤："+e.message)}
+}
+async function stop(){
+ try{
+  if(proc){proc.disconnect();proc.onaudioprocess=null}
+  if(src)src.disconnect();
+  if(st){rec.decode(st);const r=rec.getResult(st);if(r.text)$("out").value=r.text;st.free()}
+  if(ctx)await ctx.close();if(mic)mic.getTracks().forEach(x=>x.stop());
+ }finally{
+  proc=src=ctx=mic=st=null;running=false;
+  $("mic").textContent="② 開始說話";$("mic").classList.remove("stop");say("完成。");
+ }
+}
+$("load").onclick=load;$("mic").onclick=start;$("clear").onclick=()=>$("out").value="";
+if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js");
+</script></body></html>
