@@ -10,6 +10,14 @@
 
 <title>SenseVoice INT8 離線語音輸入</title>
 
+<!-- =======================================================
+     OpenCC
+     簡體中文 → 臺灣正體
+     ======================================================= -->
+<script
+  src="https://cdn.jsdelivr.net/npm/opencc-js@1.4.2/dist/umd/full.js"
+></script>
+
 <style>
 
 * {
@@ -291,10 +299,121 @@ sherpa-onnx · Hugging Face · 瀏覽器本機語音辨識
    ========================================================= */
 
 const MODEL_URL =
-"https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/resolve/main/model.int8.onnx";
+"https://huggingface.co/csu" +
+"kuangfj/sherpa-onnx-sense-voice-" +
+"zh-en-ja-ko-yue-int8-2025-09-09/" +
+"resolve/main/model.int8.onnx";
 
 const TOKENS_URL =
-"https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/resolve/main/tokens.txt";
+"https://huggingface.co/csukuangfj/" +
+"sherpa-onnx-sense-voice-zh-en-ja-ko-yue-" +
+"int8-2025-09-09/resolve/main/tokens.txt";
+
+
+/* =========================================================
+   1.5 OpenCC
+   ========================================================= */
+
+/*
+ * SenseVoice 回傳的中文可能是簡體。
+ *
+ * OpenCC：
+ *
+ *   cn = 簡體中文
+ *   tw = 臺灣正體中文
+ *
+ * 因此：
+ *
+ *   簡體 → 臺灣正體
+ */
+
+let openccConverter = null;
+
+try {
+
+  if (
+    typeof OpenCC === "undefined"
+  ) {
+
+    throw new Error(
+      "找不到 OpenCC"
+    );
+
+  }
+
+
+  openccConverter =
+    OpenCC.Converter({
+      from: "cn",
+      to: "tw"
+    });
+
+
+  console.log(
+    "OpenCC 初始化成功：cn → tw"
+  );
+
+} catch (error) {
+
+  console.error(
+    "OpenCC 初始化失敗：",
+    error
+  );
+
+}
+
+
+/*
+ * 將 SenseVoice 結果轉成臺灣正體。
+ *
+ * 如果 OpenCC 因網路或其他原因沒有載入，
+ * 就保留原始辨識結果，不讓整個語音辨識掛掉。
+ */
+
+function convertToTraditionalChinese(
+  text
+) {
+
+  if (
+    !text
+  ) {
+
+    return "";
+
+  }
+
+
+  if (
+    !openccConverter
+  ) {
+
+    console.warn(
+      "OpenCC 不可用，使用原始辨識結果。"
+    );
+
+    return text;
+
+  }
+
+
+  try {
+
+    return openccConverter(
+      text
+    );
+
+  } catch (error) {
+
+    console.error(
+      "OpenCC 轉換失敗：",
+      error
+    );
+
+    return text;
+
+  }
+
+}
 
 
 /* =========================================================
@@ -1335,6 +1454,10 @@ async function loadModel() {
     );
 
     log(
+      "OpenCC READY: cn → tw"
+    );
+
+    log(
       "================================"
     );
 
@@ -1746,8 +1869,44 @@ async function stopRecording() {
       result.text.trim()
     ) {
 
+      /*
+       * =================================================
+       * OpenCC
+       *
+       * SenseVoice 原始結果
+       *        ↓
+       *   簡體中文
+       *        ↓
+       *     OpenCC
+       *        ↓
+       *   臺灣正體中文
+       * =================================================
+       */
+
+      const traditionalText =
+        convertToTraditionalChinese(
+          result.text
+        );
+
+
+      log(
+        "OpenCC 原始結果：" +
+        result.text
+      );
+
+
+      log(
+        "OpenCC 臺灣正體：" +
+        traditionalText
+      );
+
+
+      /*
+       * 顯示轉換後結果。
+       */
+
       outputElement.value =
-        result.text;
+        traditionalText;
 
 
       setStatus(
@@ -1996,6 +2155,10 @@ log(
 
 log(
   "ASR API: ./assets/sherpa-onnx-asr.js"
+);
+
+log(
+  "OpenCC: cn → tw"
 );
 
 </script>
