@@ -2,11 +2,16 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 
-<title>SenseVoice 離線中文語音輸入</title>
+<meta
+  name="viewport"
+  content="width=device-width,initial-scale=1,viewport-fit=cover"
+>
+
+<title>SenseVoice INT8 離線語音輸入</title>
 
 <style>
+
 * {
   box-sizing: border-box;
 }
@@ -24,7 +29,7 @@ body {
 }
 
 main {
-  max-width: 700px;
+  max-width: 720px;
   margin: auto;
   padding: 24px 16px;
 }
@@ -37,8 +42,8 @@ main {
 }
 
 h1 {
+  margin: 0 0 6px;
   font-size: 23px;
-  margin: 0 0 5px;
 }
 
 .sub {
@@ -62,7 +67,6 @@ button {
   font-weight: 700;
   font-size: 15px;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
 
 button:disabled {
@@ -85,22 +89,23 @@ button.stop {
   background: #0c1423;
   color: #bac5d8;
   font-size: 13px;
-  min-height: 20px;
-  line-height: 1.5;
+  line-height: 1.55;
+  min-height: 22px;
+  white-space: pre-wrap;
 }
 
 #progressBox {
-  margin: 10px 3px 14px;
+  margin: 12px 3px 16px;
 }
 
 .progressInfo {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 7px;
-  font-size: 13px;
+  gap: 12px;
   color: #aebbd0;
+  font-size: 13px;
+  margin-bottom: 7px;
 }
 
 #progressText {
@@ -117,17 +122,17 @@ button.stop {
 .progressBar {
   width: 100%;
   height: 10px;
-  background: #202b40;
   border-radius: 999px;
   overflow: hidden;
+  background: #202b40;
 }
 
 #progressFill {
   width: 0%;
   height: 100%;
-  background: #3272ed;
   border-radius: 999px;
-  transition: width .15s ease;
+  background: #3272ed;
+  transition: width .12s linear;
 }
 
 textarea {
@@ -135,9 +140,9 @@ textarea {
   height: 250px;
   resize: vertical;
   border-radius: 14px;
+  border: 1px solid #2a3854;
   background: #080d17;
   color: white;
-  border: 1px solid #2a3854;
   padding: 15px;
   font-size: 20px;
   line-height: 1.6;
@@ -153,109 +158,136 @@ small {
   line-height: 1.6;
 }
 
-.tip {
-  margin-top: 10px;
-  color: #6f7f98;
-  font-size: 12px;
-  line-height: 1.5;
+#debugBox {
+  margin-top: 15px;
 }
 
-details {
-  margin-top: 15px;
+#debug {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  background: #080d17;
   color: #71809a;
   font-size: 11px;
-}
-
-pre {
+  line-height: 1.45;
+  max-height: 260px;
+  overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
 }
+
 </style>
 </head>
+
 
 <body>
 
 <main>
+
 <div class="box">
 
 <h1>🎙 SenseVoice INT8</h1>
 
 <div class="sub">
-sherpa-onnx · iPhone 瀏覽器離線中文語音輸入
+sherpa-onnx · Hugging Face · 瀏覽器本機語音辨識
 </div>
+
 
 <div class="buttons">
 
-<button id="load">
+<button id="loadButton">
 ① 載入模型
 </button>
 
-<button id="mic" disabled>
+<button
+  id="micButton"
+  disabled
+>
 ② 開始說話
 </button>
 
-<button id="clear" class="gray">
+<button
+  id="clearButton"
+  class="gray"
+>
 清除
 </button>
 
 </div>
 
+
 <div id="status">
 等待載入模型。
 </div>
 
-<div id="progressBox" hidden>
 
-  <div class="progressInfo">
+<div
+  id="progressBox"
+  hidden
+>
 
-    <span id="progressText">
-      準備下載…
-    </span>
+<div class="progressInfo">
 
-    <span id="progressPercent">
-      0%
-    </span>
+<span id="progressText">
+準備下載…
+</span>
 
-  </div>
-
-  <div class="progressBar">
-    <div id="progressFill"></div>
-  </div>
+<span id="progressPercent">
+0%
+</span>
 
 </div>
 
+<div class="progressBar">
+
+<div id="progressFill"></div>
+
+</div>
+
+</div>
+
+
 <textarea
-  id="out"
+  id="output"
   placeholder="辨識結果…"
   spellcheck="false"
 ></textarea>
 
+
 <p>
+
 <small>
-第一次使用需要下載 SenseVoice INT8 模型。
-模型會從 Hugging Face 載入。
-完成後會留在瀏覽器快取中。
-語音辨識全部在本機執行。
+第一次使用會從 Hugging Face
+下載 SenseVoice INT8 模型。
+模型約 237 MB。
 </small>
+
 </p>
 
-<div class="tip">
-請使用 HTTPS 並允許麥克風權限。
-</div>
+
+<div id="debugBox">
 
 <details>
-<summary>除錯資訊</summary>
+
+<summary>
+顯示除錯資訊
+</summary>
+
 <pre id="debug"></pre>
+
 </details>
 
 </div>
+
+</div>
+
 </main>
 
 
 <script>
 
 /* =========================================================
-   Hugging Face
+   1. Hugging Face URLs
    ========================================================= */
 
 const MODEL_URL =
@@ -266,23 +298,45 @@ const TOKENS_URL =
 
 
 /* =========================================================
-   Emscripten Module
+   2. Global Emscripten Module
    ========================================================= */
-
-let wasmModule = null;
 
 var Module = {
 
   locateFile: function(path) {
 
-    return "./assets/" + path;
+    console.log(
+      "locateFile:",
+      path
+    );
 
+    return (
+      "./assets/" +
+      path
+    );
   },
 
-  onRuntimeInitialized: function() {
+  print: function(text) {
 
     console.log(
-      "Emscripten runtime initialized"
+      "[WASM]",
+      text
+    );
+  },
+
+  printErr: function(text) {
+
+    console.error(
+      "[WASM]",
+      text
+    );
+  },
+
+  onAbort: function(reason) {
+
+    console.error(
+      "WASM ABORT:",
+      reason
     );
 
   }
@@ -292,66 +346,22 @@ var Module = {
 </script>
 
 
-<!-- =====================================================
-     sherpa-onnx WASM
-     ===================================================== -->
+<!-- =======================================================
+     3. Emscripten WASM factory
+     ======================================================= -->
 
-<script src="./assets/sherpa-onnx-wasm-web.js"></script>
-
-
-<!-- =====================================================
-     sherpa-onnx API
-     ===================================================== -->
-
-<script src="./assets/sherpa-onnx-asr.js"></script>
+<script
+  src="./assets/sherpa-onnx-wasm-web.js"
+></script>
 
 
 <script>
 
-"use strict";
-
-
 /* =========================================================
-   DOM
+   4. State
    ========================================================= */
 
-const $ =
-  id => document.getElementById(id);
-
-const loadButton =
-  $("load");
-
-const micButton =
-  $("mic");
-
-const clearButton =
-  $("clear");
-
-const statusElement =
-  $("status");
-
-const outputElement =
-  $("out");
-
-const progressBox =
-  $("progressBox");
-
-const progressText =
-  $("progressText");
-
-const progressPercent =
-  $("progressPercent");
-
-const progressFill =
-  $("progressFill");
-
-const debugElement =
-  $("debug");
-
-
-/* =========================================================
-   State
-   ========================================================= */
+let wasmModule = null;
 
 let recognizer = null;
 
@@ -373,28 +383,123 @@ let loading = false;
 
 
 /* =========================================================
-   UI
+   5. DOM
    ========================================================= */
 
-function status(message) {
+const loadButton =
+  document.getElementById(
+    "loadButton"
+  );
+
+const micButton =
+  document.getElementById(
+    "micButton"
+  );
+
+const clearButton =
+  document.getElementById(
+    "clearButton"
+  );
+
+const statusElement =
+  document.getElementById(
+    "status"
+  );
+
+const outputElement =
+  document.getElementById(
+    "output"
+  );
+
+const progressBox =
+  document.getElementById(
+    "progressBox"
+  );
+
+const progressText =
+  document.getElementById(
+    "progressText"
+  );
+
+const progressPercent =
+  document.getElementById(
+    "progressPercent"
+  );
+
+const progressFill =
+  document.getElementById(
+    "progressFill"
+  );
+
+const debugElement =
+  document.getElementById(
+    "debug"
+  );
+
+
+/* =========================================================
+   6. Helpers
+   ========================================================= */
+
+function setStatus(text) {
 
   statusElement.textContent =
-    message;
+    text;
 
 }
 
 
-function debug(message) {
+function log(text) {
 
-  console.log(message);
+  console.log(text);
 
   debugElement.textContent +=
-    message + "\n";
+    text + "\n";
 
 }
 
 
-function progress(
+function formatBytes(bytes) {
+
+  if (
+    !Number.isFinite(bytes)
+  ) {
+
+    return "0 B";
+
+  }
+
+  if (
+    bytes < 1024
+  ) {
+
+    return (
+      bytes.toFixed(0) +
+      " B"
+    );
+
+  }
+
+  if (
+    bytes < 1024 * 1024
+  ) {
+
+    return (
+      (bytes / 1024).toFixed(1) +
+      " KB"
+    );
+
+  }
+
+  return (
+    (bytes / 1024 / 1024).toFixed(1) +
+    " MB"
+  );
+
+}
+
+
+function setProgress(
   percent,
   text
 ) {
@@ -427,168 +532,133 @@ function progress(
 
 
 /* =========================================================
-   Bytes
+   7. Initialize Emscripten WASM
    ========================================================= */
 
-function bytes(bytes) {
+async function initializeWasm() {
+
+  /*
+   * 這是這次最重要的修正。
+   *
+   * 不再：
+   *
+   *   window.SherpaOnnx()
+   *
+   * 而是：
+   *
+   *   window.SherpaOnnx(Module)
+   */
 
   if (
-    !Number.isFinite(bytes) ||
-    bytes <= 0
+    typeof window.SherpaOnnx !==
+    "function"
   ) {
 
-    return "0 MB";
-
-  }
-
-  if (
-    bytes < 1024
-  ) {
-
-    return bytes + " B";
-
-  }
-
-  if (
-    bytes < 1024 * 1024
-  ) {
-
-    return (
-      (bytes / 1024).toFixed(1) +
-      " KB"
+    throw new Error(
+      "sherpa-onnx-wasm-web.js 已載入，但沒有找到 window.SherpaOnnx factory。"
     );
 
   }
 
-  return (
-    (bytes / 1024 / 1024).toFixed(1) +
-    " MB"
+
+  log(
+    "找到 window.SherpaOnnx factory"
   );
 
-}
+
+  setStatus(
+    "正在初始化 WebAssembly…"
+  );
 
 
-/* =========================================================
-   Wait for WASM
-   ========================================================= */
+  /*
+   * 傳入我們事先設定好的 Module。
+   */
 
-async function waitForWasm() {
-
-  const start =
-    Date.now();
-
-  const timeout =
-    30000;
+  wasmModule =
+    await window.SherpaOnnx(
+      Module
+    );
 
 
-  while (
-    Date.now() - start <
-    timeout
+  if (
+    !wasmModule
   ) {
 
-    /*
-     * 優先使用 SherpaOnnx factory
-     */
+    throw new Error(
+      "SherpaOnnx(Module) 沒有返回 Module。"
+    );
 
-    if (
-      typeof window.SherpaOnnx ===
+  }
+
+
+  /*
+   * 某些 Emscripten build 會把
+   * Module 自己作為返回值。
+   */
+
+  if (
+    wasmModule.FS
+  ) {
+
+    log(
+      "找到 wasmModule.FS"
+    );
+
+  }
+
+
+  /*
+   * 確認 FS.writeFile。
+   */
+
+  if (
+    !wasmModule.FS ||
+    typeof wasmModule.FS.writeFile !==
       "function"
-    ) {
+  ) {
 
-      debug(
-        "找到 window.SherpaOnnx factory"
-      );
-
-      try {
-
-        const candidate =
-          window.SherpaOnnx();
-
-
-        if (
-          candidate &&
-          candidate.FS &&
-          typeof candidate.FS.writeFile ===
-            "function"
-        ) {
-
-          wasmModule =
-            candidate;
-
-          debug(
-            "OK：SherpaOnnx.FS.writeFile"
-          );
-
-          return wasmModule;
-
-        }
-
-      } catch (e) {
-
-        debug(
-          "SherpaOnnx factory 尚未完成：" +
-          e.message
-        );
-
-      }
-
-    }
-
-
-    /*
-     * 某些 build 直接把 Module
-     * 當成 Emscripten runtime
-     */
-
-    if (
-      window.Module &&
-      Module.FS &&
-      typeof Module.FS.writeFile ===
-        "function"
-    ) {
-
-      wasmModule =
-        Module;
-
-      debug(
-        "OK：Module.FS.writeFile"
-      );
-
-      return wasmModule;
-
-    }
-
-
-    await new Promise(
-      resolve =>
-        setTimeout(
-          resolve,
-          100
-        )
+    throw new Error(
+      "WASM 初始化成功，但找不到 wasmModule.FS.writeFile。"
     );
 
   }
 
 
-  throw new Error(
-    "WASM 初始化逾時。\n" +
-    "找不到可用的 FS.writeFile。"
+  log(
+    "OK：wasmModule.FS.writeFile"
   );
+
+
+  return wasmModule;
 
 }
 
 
 /* =========================================================
-   Download with progress
+   8. Download with progress
    ========================================================= */
 
-async function download(
+async function downloadFile(
   url,
   label
 ) {
 
-  debug(
-    "開始下載：" + label
+  setStatus(
+    "正在下載 " +
+    label +
+    "…"
+  );
+
+
+  setProgress(
+    0,
+    "連線中…"
+  );
+
+
+  log(
+    "下載：" + url
   );
 
 
@@ -596,7 +666,10 @@ async function download(
     await fetch(
       url,
       {
-        cache: "no-store"
+        method: "GET",
+        mode: "cors",
+        credentials: "omit",
+        cache: "default"
       }
     );
 
@@ -616,23 +689,32 @@ async function download(
   }
 
 
-  const totalHeader =
+  const length =
     response.headers.get(
       "Content-Length"
     );
 
+
   const total =
-    totalHeader
-      ? parseInt(
-          totalHeader,
-          10
-        )
+    length
+      ? Number(length)
       : 0;
 
 
+  log(
+    label +
+    " Content-Length: " +
+    (
+      total
+        ? formatBytes(total)
+        : "未知"
+    )
+  );
+
+
   /*
-   * 如果瀏覽器拿不到 Content-Length，
-   * 仍然會顯示已下載 MB。
+   * 沒有 ReadableStream 時，
+   * 使用 arrayBuffer。
    */
 
   if (
@@ -642,14 +724,16 @@ async function download(
     const buffer =
       await response.arrayBuffer();
 
-    progress(
+
+    setProgress(
       100,
       label +
       " " +
-      bytes(
+      formatBytes(
         buffer.byteLength
       )
     );
+
 
     return new Uint8Array(
       buffer
@@ -682,79 +766,74 @@ async function download(
     }
 
 
-    const value =
-      result.value;
-
-
-    if (!value) {
-      continue;
-    }
-
-
-    chunks.push(
-      value
-    );
-
-
-    received +=
-      value.byteLength;
-
-
     if (
-      total > 0
+      result.value
     ) {
 
-      const percent =
-        received /
-        total *
-        100;
-
-
-      progress(
-        percent,
-        label +
-        "  " +
-        bytes(received) +
-        " / " +
-        bytes(total)
+      chunks.push(
+        result.value
       );
 
 
-      status(
-        "正在下載 " +
-        label +
-        "… " +
-        Math.round(
-          percent
-        ) +
-        "%"
-      );
-
-    } else {
-
-      /*
-       * Hugging Face CDN 有時不提供
-       * Content-Length。
-       */
-
-      progress(
-        0,
-        label +
-        "  " +
-        bytes(received)
-      );
+      received +=
+        result.value.byteLength;
 
 
-      progressPercent.textContent =
-        bytes(received);
+      if (
+        total > 0
+      ) {
+
+        const percent =
+          received /
+          total *
+          100;
 
 
-      status(
-        "正在下載 " +
-        label +
-        "… " +
-        bytes(received)
-      );
+        setProgress(
+          percent,
+          formatBytes(received) +
+          " / " +
+          formatBytes(total)
+        );
+
+
+        setStatus(
+          "正在下載 " +
+          label +
+          "… " +
+          Math.round(
+            percent
+          ) +
+          "%"
+        );
+
+      } else {
+
+        /*
+         * Hugging Face 如果沒有提供
+         * Content-Length，
+         * 至少顯示目前已下載大小。
+         */
+
+        setProgress(
+          0,
+          "已下載 " +
+          formatBytes(received)
+        );
+
+
+        progressPercent.textContent =
+          formatBytes(received);
+
+
+        setStatus(
+          "正在下載 " +
+          label +
+          "… " +
+          formatBytes(received)
+        );
+
+      }
 
     }
 
@@ -779,41 +858,25 @@ async function download(
       offset
     );
 
+
     offset +=
       chunk.byteLength;
 
   }
 
 
-  if (
-    total > 0
-  ) {
-
-    progress(
-      100,
-      label +
-      " " +
-      bytes(received) +
-      " / " +
-      bytes(total)
-    );
-
-  } else {
-
-    progress(
-      100,
-      label +
-      " " +
-      bytes(received)
-    );
-
-  }
-
-
-  debug(
+  setProgress(
+    100,
     label +
     " 完成：" +
-    bytes(received)
+    formatBytes(received)
+  );
+
+
+  log(
+    label +
+    " 完成：" +
+    formatBytes(received)
   );
 
 
@@ -823,15 +886,301 @@ async function download(
 
 
 /* =========================================================
-   Load model
+   9. Write files into Emscripten FS
+   ========================================================= */
+
+function writeWasmFile(
+  filename,
+  data
+) {
+
+  if (
+    !wasmModule
+  ) {
+
+    throw new Error(
+      "WASM Module 不存在。"
+    );
+
+  }
+
+
+  if (
+    !wasmModule.FS
+  ) {
+
+    throw new Error(
+      "WASM FS 不存在。"
+    );
+
+  }
+
+
+  if (
+    typeof wasmModule.FS.writeFile !==
+      "function"
+  ) {
+
+    throw new Error(
+      "WASM FS.writeFile 不存在。"
+    );
+
+  }
+
+
+  /*
+   * 先刪除舊檔案。
+   */
+
+  try {
+
+    wasmModule.FS.unlink(
+      "/" + filename
+    );
+
+  } catch (_) {}
+
+
+  /*
+   * 寫入。
+   */
+
+  wasmModule.FS.writeFile(
+    "/" + filename,
+    data
+  );
+
+
+  log(
+    "FS.writeFile OK: /" +
+    filename
+  );
+
+}
+
+
+/* =========================================================
+   10. Load ASR helper
+   ========================================================= */
+
+async function loadAsrApi() {
+
+  /*
+   * asr.js 必須在 WASM 初始化後使用。
+   *
+   * 這個檔案定義：
+   *
+   * OfflineRecognizer
+   * OfflineStream
+   */
+
+  await new Promise(
+    function(resolve, reject) {
+
+      const script =
+        document.createElement(
+          "script"
+        );
+
+
+      script.src =
+        "./assets/sherpa-onnx-asr.js";
+
+
+      script.onload =
+        function() {
+
+          log(
+            "sherpa-onnx-asr.js 載入成功"
+          );
+
+          resolve();
+
+        };
+
+
+      script.onerror =
+        function() {
+
+          reject(
+            new Error(
+              "sherpa-onnx-asr.js 載入失敗"
+            )
+          );
+
+        };
+
+
+      document.head.appendChild(
+        script
+      );
+
+    }
+  );
+
+
+  /*
+   * 注意：
+   *
+   * sherpa-onnx-asr.js 是 classic script。
+   *
+   * 它裡面的 OfflineRecognizer
+   * 是 global lexical binding，
+   * 不一定會出現在 window.OfflineRecognizer。
+   *
+   * 所以不能只檢查：
+   *
+   * window.OfflineRecognizer
+   */
+
+  if (
+    typeof OfflineRecognizer !==
+    "function"
+  ) {
+
+    throw new Error(
+      "sherpa-onnx-asr.js 已載入，但 OfflineRecognizer 不存在。"
+    );
+
+  }
+
+
+  log(
+    "OK：OfflineRecognizer"
+  );
+
+}
+
+
+/* =========================================================
+   11. Create SenseVoice recognizer
+   ========================================================= */
+
+function createRecognizer() {
+
+  setStatus(
+    "正在建立 SenseVoice 辨識器…"
+  );
+
+
+  /*
+   * 官方 sherpa-onnx JS API
+   * 使用這個 config 結構。
+   */
+
+  const config = {
+
+    featConfig: {
+
+      sampleRate:
+        16000,
+
+      featureDim:
+        80
+
+    },
+
+
+    modelConfig: {
+
+      /*
+       * 模型與 tokens
+       * 已經寫入 WASM FS。
+       */
+
+      tokens:
+        "./tokens.txt",
+
+      numThreads:
+        1,
+
+      provider:
+        "cpu",
+
+      debug:
+        0,
+
+
+      senseVoice: {
+
+        model:
+          "./model.int8.onnx",
+
+        language:
+          "zh",
+
+        useInverseTextNormalization:
+          1
+
+      }
+
+    },
+
+
+    decodingMethod:
+      "greedy_search"
+
+  };
+
+
+  log(
+    "建立 OfflineRecognizer..."
+  );
+
+
+  /*
+   * 這裡是官方 asr.js 的正確呼叫方式：
+   *
+   * new OfflineRecognizer(config, Module)
+   */
+
+  recognizer =
+    new OfflineRecognizer(
+      config,
+      wasmModule
+    );
+
+
+  if (
+    !recognizer
+  ) {
+
+    throw new Error(
+      "OfflineRecognizer 建立失敗。"
+    );
+
+  }
+
+
+  log(
+    "OK：OfflineRecognizer 建立完成"
+  );
+
+}
+
+
+/* =========================================================
+   12. Complete model loading
    ========================================================= */
 
 async function loadModel() {
 
   if (
-    loading ||
+    loading
+  ) {
+
+    return;
+
+  }
+
+
+  if (
     recognizer
   ) {
+
+    setStatus(
+      "模型已經載入。"
+    );
 
     return;
 
@@ -845,6 +1194,7 @@ async function loadModel() {
   loadButton.disabled =
     true;
 
+
   micButton.disabled =
     true;
 
@@ -853,72 +1203,70 @@ async function loadModel() {
     false;
 
 
-  progress(
-    0,
-    "準備下載模型…"
-  );
-
-
-  status(
-    "正在連線到 Hugging Face…"
-  );
-
-
   try {
 
-    /* -----------------------------------------------------
-       WASM
-       --------------------------------------------------- */
+    /*
+     * ---------------------------------------------
+     * A. WASM
+     * ---------------------------------------------
+     */
 
-    status(
-      "正在初始化 WebAssembly…"
-    );
-
-
-    await waitForWasm();
+    await initializeWasm();
 
 
-    debug(
-      "WASM Module 初始化完成"
-    );
-
-
-    /* -----------------------------------------------------
-       Model
-       --------------------------------------------------- */
-
-    status(
-      "正在下載 SenseVoice INT8 模型…"
-    );
-
+    /*
+     * ---------------------------------------------
+     * B. Model
+     * ---------------------------------------------
+     */
 
     const modelData =
-      await download(
+      await downloadFile(
         MODEL_URL,
-        "SenseVoice 模型"
+        "SenseVoice INT8 模型"
       );
 
 
-    /* -----------------------------------------------------
-       Tokens
-       --------------------------------------------------- */
-
-    progress(
-      100,
-      "模型下載完成"
-    );
-
-
-    status(
-      "正在下載 tokens.txt…"
-    );
-
+    /*
+     * ---------------------------------------------
+     * C. Tokens
+     * ---------------------------------------------
+     */
 
     const tokensData =
-      await download(
+      await downloadFile(
         TOKENS_URL,
         "tokens.txt"
       );
+
+
+    /*
+     * ---------------------------------------------
+     * D. Write FS
+     * ---------------------------------------------
+     */
+
+    setStatus(
+      "正在寫入 WASM 檔案系統…"
+    );
+
+
+    setProgress(
+      100,
+      "寫入 model.int8.onnx…"
+    );
+
+
+    writeWasmFile(
+      "model.int8.onnx",
+      modelData
+    );
+
+
+    setProgress(
+      100,
+      "寫入 tokens.txt…"
+    );
 
 
     const tokensText =
@@ -929,315 +1277,39 @@ async function loadModel() {
       );
 
 
-    /* -----------------------------------------------------
-       FS
-       --------------------------------------------------- */
-
-    status(
-      "正在寫入 WASM 檔案系統…"
-    );
-
-
-    if (
-      !wasmModule ||
-      !wasmModule.FS ||
-      typeof wasmModule.FS.writeFile !==
-        "function"
-    ) {
-
-      throw new Error(
-        "WebAssembly 沒有提供 Emscripten FS.writeFile"
-      );
-
-    }
-
-
-    /*
-     * 清除舊檔案
-     */
-
-    try {
-
-      wasmModule.FS.unlink(
-        "/model.int8.onnx"
-      );
-
-    } catch (_) {}
-
-
-    try {
-
-      wasmModule.FS.unlink(
-        "/tokens.txt"
-      );
-
-    } catch (_) {}
-
-
-    /*
-     * 寫入模型
-     */
-
-    wasmModule.FS.writeFile(
-      "/model.int8.onnx",
-      modelData
-    );
-
-
-    wasmModule.FS.writeFile(
-      "/tokens.txt",
+    writeWasmFile(
+      "tokens.txt",
       tokensText
     );
 
 
-    debug(
-      "OK：model.int8.onnx 已寫入 WASM FS"
-    );
+    /*
+     * ---------------------------------------------
+     * E. ASR API
+     * ---------------------------------------------
+     */
 
-
-    debug(
-      "OK：tokens.txt 已寫入 WASM FS"
-    );
-
-
-    /* -----------------------------------------------------
-       Check sherpa API
-       --------------------------------------------------- */
-
-    status(
-      "正在載入 sherpa-onnx API…"
-    );
-
-
-    debug(
-      "Sherpa globals:"
-    );
-
-
-    debug(
-      Object.keys(
-        window
-      )
-      .filter(
-        key =>
-          key
-            .toLowerCase()
-            .includes("sherpa")
-      )
-      .join(", ")
-    );
+    await loadAsrApi();
 
 
     /*
-     * 新版 API
+     * ---------------------------------------------
+     * F. Recognizer
+     * ---------------------------------------------
      */
 
-    if (
-      typeof window.SherpaOnnx ===
-      "function"
-    ) {
-
-      debug(
-        "SherpaOnnx API 存在"
-      );
-
-    }
+    createRecognizer();
 
 
     /*
-     * 舊版 API fallback
+     * ---------------------------------------------
+     * READY
+     * ---------------------------------------------
      */
 
-    if (
-      typeof window.OfflineRecognizer ===
-      "function"
-    ) {
-
-      debug(
-        "找到舊版 OfflineRecognizer API"
-      );
-
-
-      recognizer =
-        new OfflineRecognizer(
-          {
-            featConfig: {
-              sampleRate: 16000,
-              featureDim: 80
-            },
-
-            modelConfig: {
-
-              tokens:
-                "./tokens.txt",
-
-              numThreads:
-                2,
-
-              provider:
-                "cpu",
-
-              debug:
-                0,
-
-              senseVoice: {
-
-                model:
-                  "./model.int8.onnx",
-
-                language:
-                  "zh",
-
-                useInverseTextNormalization:
-                  1
-
-              }
-
-            },
-
-            decodingMethod:
-              "greedy_search"
-
-          },
-          wasmModule
-        );
-
-    } else {
-
-      /*
-       * 新版 API 建立 SenseVoice
-       */
-
-      if (
-        !window.SherpaOnnx
-      ) {
-
-        throw new Error(
-          "找不到 SherpaOnnx API"
-        );
-
-      }
-
-
-      const api =
-        window.SherpaOnnx();
-
-
-      if (
-        !api
-      ) {
-
-        throw new Error(
-          "SherpaOnnx 初始化失敗"
-        );
-
-      }
-
-
-      debug(
-        "使用新版 SherpaOnnx API"
-      );
-
-
-      /*
-       * 建立 SenseVoice model config
-       */
-
-      if (
-        typeof api.OfflineRecognizer !==
-        "function"
-      ) {
-
-        throw new Error(
-          "目前 sherpa-onnx WASM 沒有 OfflineRecognizer API。\n" +
-          "請確認 GitHub Actions 使用同一版本的 sherpa-onnx。"
-        );
-
-      }
-
-
-      const modelConfig =
-        api.OfflineModelConfig();
-
-
-      modelConfig.tokens =
-        "/tokens.txt";
-
-
-      modelConfig.numThreads =
-        2;
-
-
-      modelConfig.provider =
-        "cpu";
-
-
-      const senseVoice =
-        api.OfflineSenseVoiceModelConfig();
-
-
-      senseVoice.model =
-        "/model.int8.onnx";
-
-
-      senseVoice.language =
-        "zh";
-
-
-      senseVoice.useInverseTextNormalization =
-        true;
-
-
-      modelConfig.senseVoice =
-        senseVoice;
-
-
-      const config =
-        api.OfflineRecognizerConfig();
-
-
-      config.featConfig.sampleRate =
-        16000;
-
-
-      config.featConfig.featureDim =
-        80;
-
-
-      config.modelConfig =
-        modelConfig;
-
-
-      config.decodingMethod =
-        "greedy_search";
-
-
-      recognizer =
-        new api.OfflineRecognizer(
-          config
-        );
-
-    }
-
-
-    /* -----------------------------------------------------
-       Ready
-       --------------------------------------------------- */
-
-    if (
-      !recognizer
-    ) {
-
-      throw new Error(
-        "Recognizer 建立失敗"
-      );
-
-    }
-
-
-    progress(
+    setProgress(
       100,
-      "模型已準備完成"
+      "模型準備完成"
     );
 
 
@@ -1245,7 +1317,7 @@ async function loadModel() {
       "完成";
 
 
-    status(
+    setStatus(
       "✅ 模型已載入，可以開始說話。"
     );
 
@@ -1254,19 +1326,28 @@ async function loadModel() {
       false;
 
 
-    debug(
-      "SenseVoice ready."
+    log(
+      "================================"
+    );
+
+    log(
+      "SenseVoice READY"
+    );
+
+    log(
+      "================================"
     );
 
 
   } catch (error) {
 
     console.error(
+      "LOAD ERROR:",
       error
     );
 
 
-    debug(
+    log(
       "ERROR: " +
       (
         error &&
@@ -1281,22 +1362,22 @@ async function loadModel() {
       null;
 
 
-    micButton.disabled =
-      true;
-
-
     loadButton.disabled =
       false;
 
 
-    progress(
+    micButton.disabled =
+      true;
+
+
+    setProgress(
       0,
       "載入失敗"
     );
 
 
-    status(
-      "載入失敗：" +
+    setStatus(
+      "載入失敗：\n" +
       (
         error &&
         error.message
@@ -1304,6 +1385,7 @@ async function loadModel() {
           : String(error)
       )
     );
+
 
   } finally {
 
@@ -1316,7 +1398,7 @@ async function loadModel() {
 
 
 /* =========================================================
-   Start recording
+   13. Start microphone
    ========================================================= */
 
 async function startRecording() {
@@ -1325,7 +1407,7 @@ async function startRecording() {
     !recognizer
   ) {
 
-    status(
+    setStatus(
       "請先載入模型。"
     );
 
@@ -1344,6 +1426,18 @@ async function startRecording() {
 
 
   try {
+
+    if (
+      !navigator.mediaDevices ||
+      !navigator.mediaDevices.getUserMedia
+    ) {
+
+      throw new Error(
+        "此瀏覽器不支援麥克風。"
+      );
+
+    }
+
 
     mediaStream =
       await navigator.mediaDevices.getUserMedia(
@@ -1376,31 +1470,35 @@ async function startRecording() {
       audioContext.sampleRate;
 
 
-    debug(
-      "AudioContext sample rate: " +
+    log(
+      "Microphone sample rate: " +
       sampleRate
     );
+
+
+    /*
+     * 建立 OfflineStream。
+     */
+
+    audioStream =
+      recognizer.createStream();
+
+
+    if (
+      !audioStream
+    ) {
+
+      throw new Error(
+        "無法建立 OfflineStream。"
+      );
+
+    }
 
 
     mediaSource =
       audioContext.createMediaStreamSource(
         mediaStream
       );
-
-
-    /*
-     * 舊版 OfflineRecognizer
-     */
-
-    if (
-      typeof recognizer.createStream ===
-      "function"
-    ) {
-
-      audioStream =
-        recognizer.createStream();
-
-    }
 
 
     processor =
@@ -1439,6 +1537,16 @@ async function startRecording() {
         );
 
 
+        /*
+         * sherpa-onnx OfflineStream
+         * 的 API 是：
+         *
+         * acceptWaveform(
+         *   sampleRate,
+         *   samples
+         * )
+         */
+
         audioStream.acceptWaveform(
           sampleRate,
           samples
@@ -1451,6 +1559,10 @@ async function startRecording() {
       processor
     );
 
+
+    /*
+     * 不把麥克風聲音播放出來。
+     */
 
     silentGain =
       audioContext.createGain();
@@ -1477,13 +1589,12 @@ async function startRecording() {
     micButton.textContent =
       "⏹ 停止";
 
-
     micButton.classList.add(
       "stop"
     );
 
 
-    status(
+    setStatus(
       "🔴 錄音中…說完後按「停止」。"
     );
 
@@ -1491,6 +1602,7 @@ async function startRecording() {
   } catch (error) {
 
     console.error(
+      "MIC ERROR:",
       error
     );
 
@@ -1498,8 +1610,8 @@ async function startRecording() {
     cleanupAudio();
 
 
-    status(
-      "麥克風錯誤：" +
+    setStatus(
+      "麥克風錯誤：\n" +
       (
         error &&
         error.message
@@ -1514,7 +1626,7 @@ async function startRecording() {
 
 
 /* =========================================================
-   Stop
+   14. Stop microphone + recognize
    ========================================================= */
 
 async function stopRecording() {
@@ -1536,7 +1648,7 @@ async function stopRecording() {
     true;
 
 
-  status(
+  setStatus(
     "錄音完成，正在辨識…"
   );
 
@@ -1553,6 +1665,10 @@ async function stopRecording() {
     }
 
 
+    /*
+     * 停止麥克風。
+     */
+
     if (
       mediaStream
     ) {
@@ -1560,12 +1676,19 @@ async function stopRecording() {
       mediaStream
         .getTracks()
         .forEach(
-          track =>
-            track.stop()
+          function(track) {
+
+            track.stop();
+
+          }
         );
 
     }
 
+
+    /*
+     * 關閉 AudioContext。
+     */
 
     if (
       audioContext
@@ -1585,46 +1708,30 @@ async function stopRecording() {
     ) {
 
       throw new Error(
-        "沒有建立 OfflineStream"
+        "沒有錄音 Stream。"
       );
 
     }
 
 
     /*
-     * Decode
+     * OfflineStream 不需要 inputFinished。
+     *
+     * 直接 decode。
      */
 
-    if (
-      typeof recognizer.decode ===
-      "function"
-    ) {
+    recognizer.decode(
+      audioStream
+    );
 
-      recognizer.decode(
+
+    const result =
+      recognizer.getResult(
         audioStream
       );
 
-    }
 
-
-    let result =
-      null;
-
-
-    if (
-      typeof recognizer.getResult ===
-      "function"
-    ) {
-
-      result =
-        recognizer.getResult(
-          audioStream
-        );
-
-    }
-
-
-    debug(
+    log(
       "Recognition result: " +
       JSON.stringify(
         result
@@ -1634,37 +1741,35 @@ async function stopRecording() {
 
     if (
       result &&
-      result.text
+      typeof result.text ===
+        "string" &&
+      result.text.trim()
     ) {
 
       outputElement.value =
         result.text;
 
 
-      status(
-        "✅ 完成。"
+      setStatus(
+        "✅ 辨識完成。"
       );
 
     } else {
 
-      status(
+      setStatus(
         "沒有辨識到文字。"
       );
 
     }
 
 
+    /*
+     * 釋放 stream。
+     */
+
     try {
 
-      if (
-        audioStream &&
-        typeof audioStream.free ===
-          "function"
-      ) {
-
-        audioStream.free();
-
-      }
+      audioStream.free();
 
     } catch (_) {}
 
@@ -1672,12 +1777,13 @@ async function stopRecording() {
   } catch (error) {
 
     console.error(
+      "RECOGNITION ERROR:",
       error
     );
 
 
-    debug(
-      "Recognition error: " +
+    log(
+      "Recognition ERROR: " +
       (
         error &&
         error.stack
@@ -1687,8 +1793,8 @@ async function stopRecording() {
     );
 
 
-    status(
-      "辨識失敗：" +
+    setStatus(
+      "辨識失敗：\n" +
       (
         error &&
         error.message
@@ -1721,7 +1827,7 @@ async function stopRecording() {
 
 
 /* =========================================================
-   Cleanup
+   15. Cleanup audio
    ========================================================= */
 
 function cleanupAudio() {
@@ -1772,7 +1878,7 @@ function cleanupAudio() {
     mediaStream
       .getTracks()
       .forEach(
-        track => {
+        function(track) {
 
           try {
 
@@ -1808,28 +1914,32 @@ function cleanupAudio() {
 
 
 /* =========================================================
-   Buttons
+   16. Buttons
    ========================================================= */
 
 loadButton.addEventListener(
   "click",
-  loadModel
+  function() {
+
+    loadModel();
+
+  }
 );
 
 
 micButton.addEventListener(
   "click",
-  async function() {
+  function() {
 
     if (
       recording
     ) {
 
-      await stopRecording();
+      stopRecording();
 
     } else {
 
-      await startRecording();
+      startRecording();
 
     }
 
@@ -1844,31 +1954,48 @@ clearButton.addEventListener(
     outputElement.value =
       "";
 
-    status(
+    if (
       recognizer
-        ? "模型已載入，可以開始說話。"
-        : "等待載入模型。"
-    );
+    ) {
+
+      setStatus(
+        "模型已載入，可以開始說話。"
+      );
+
+    } else {
+
+      setStatus(
+        "等待載入模型。"
+      );
+
+    }
 
   }
 );
 
 
 /* =========================================================
-   Startup
+   17. Startup
    ========================================================= */
 
-debug(
+log(
   "Page loaded."
 );
 
-debug(
-  "Model URL: " +
+log(
+  "Hugging Face model URL:"
+);
+
+log(
   MODEL_URL
 );
 
-debug(
-  "WASM script loaded."
+log(
+  "WASM URL: ./assets/sherpa-onnx-wasm-web.js"
+);
+
+log(
+  "ASR API: ./assets/sherpa-onnx-asr.js"
 );
 
 </script>
