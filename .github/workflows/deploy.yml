@@ -1,0 +1,57 @@
+name: Build SenseVoice and Deploy Pages
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+      with:
+        repository: k2-fsa/sherpa-onnx
+        path: sherpa-onnx
+    - name: Install Emscripten
+      run: |
+        git clone --depth 1 --branch 4.0.23 https://github.com/emscripten-core/emsdk.git
+        cd emsdk
+        ./emsdk install 4.0.23
+        ./emsdk activate 4.0.23
+    - name: Build WASM
+      run: |
+        cd sherpa-onnx
+        source ../emsdk/emsdk_env.sh
+        ./build-wasm-simd-asr.sh
+    - name: Download model and assemble site
+      run: |
+        mkdir -p public/assets
+        cp index.html sw.js public/
+        cp sherpa-onnx/wasm/asr/sherpa-onnx-asr.js public/assets/
+        cp sherpa-onnx/build-wasm-simd-asr/install/bin/wasm/asr/sherpa-onnx-wasm-main-asr.js public/assets/
+        cp sherpa-onnx/build-wasm-simd-asr/install/bin/wasm/asr/sherpa-onnx-wasm-main-asr.wasm public/assets/
+        curl -L --fail --retry 3 "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09.tar.bz2" -o /tmp/model.tar.bz2
+        tar -xjf /tmp/model.tar.bz2 -C /tmp
+        cp /tmp/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/model.int8.onnx public/assets/
+        cp /tmp/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/tokens.txt public/assets/
+        touch public/.nojekyll
+    - uses: actions/configure-pages@v5
+    - uses: actions/upload-pages-artifact@v3
+      with:
+        path: public
+  deploy:
+    needs: build
+    runs-on: ubuntu-22.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+    - id: deployment
+      uses: actions/deploy-pages@v4
