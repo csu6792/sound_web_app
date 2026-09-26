@@ -39,40 +39,19 @@ jobs:
           ./emsdk install 4.0.23
           ./emsdk activate 4.0.23
 
-      - name: Build WebAssembly
+      - name: Build official WebAssembly runtime
         shell: bash
         run: |
           source emsdk/emsdk_env.sh
-
           cd sherpa-onnx
 
-          mkdir -p build-web
-
-          cd build-web
-
-          cmake .. \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE=$EMSDK/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
-            -DCMAKE_INSTALL_PREFIX=./install \
-            -DSHERPA_ONNX_ENABLE_PYTHON=OFF \
-            -DSHERPA_ONNX_ENABLE_TESTS=OFF \
-            -DSHERPA_ONNX_ENABLE_CHECK=OFF \
-            -DSHERPA_ONNX_ENABLE_PORTAUDIO=OFF \
-            -DSHERPA_ONNX_ENABLE_JNI=OFF \
-            -DSHERPA_ONNX_ENABLE_TTS=OFF \
-            -DSHERPA_ONNX_ENABLE_WEBSOCKET=OFF \
-            -DSHERPA_ONNX_ENABLE_GPU=OFF \
-            -DSHERPA_ONNX_ENABLE_WASM=ON \
-            -DSHERPA_ONNX_ENABLE_WASM_ASR=ON \
-            -DSHERPA_ONNX_ENABLE_WASM_WEB=ON \
-            -DSHERPA_ONNX_ENABLE_BINARY=OFF
-
-          make -j2
-          make install
+          ./build-wasm-simd-web.sh
 
       - name: Download SenseVoice INT8
         shell: bash
         run: |
+          set -euxo pipefail
+
           mkdir -p public/assets
 
           curl -L --fail --retry 3 \
@@ -91,39 +70,51 @@ jobs:
           cp /tmp/sensevoice/tokens.txt \
             public/assets/tokens.txt
 
-      - name: Copy WebAssembly files
+      - name: Copy WebAssembly runtime
         shell: bash
         run: |
-          find sherpa-onnx/build-web/install/bin/wasm \
-            -type f \
-            -maxdepth 4 \
-            -print
+          set -euxo pipefail
 
-          cp $(find sherpa-onnx/build-web/install/bin/wasm \
-            -name "*.js" | head -1) \
-            public/assets/sherpa-onnx.js
+          mkdir -p public/assets
 
-          cp $(find sherpa-onnx/build-web/install/bin/wasm \
-            -name "*.wasm" | head -1) \
-            public/assets/sherpa-onnx.wasm
+          cp \
+            sherpa-onnx/build-wasm-simd-web/install/bin/wasm/web/sherpa-onnx-wasm-web.js \
+            public/assets/
+
+          cp \
+            sherpa-onnx/build-wasm-simd-web/install/bin/wasm/web/sherpa-onnx-wasm-web.wasm \
+            public/assets/
+
+          cp \
+            sherpa-onnx/wasm/asr/sherpa-onnx-asr.js \
+            public/assets/
+
+          echo "===== Assets ====="
+          ls -lh public/assets/
 
       - name: Copy website
+        shell: bash
         run: |
+          set -euxo pipefail
+
           cp index.html public/index.html
-          cp sw.js public/sw.js
+
+          if [ -f sw.js ]; then
+            cp sw.js public/sw.js
+          fi
+
           touch public/.nojekyll
 
-      - name: Configure Pages
+      - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload Pages
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: public
 
   deploy:
     needs: build
-
     runs-on: ubuntu-22.04
 
     environment:
