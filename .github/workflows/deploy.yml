@@ -21,13 +21,13 @@ jobs:
 
     steps:
       # ------------------------------------------------------------
-      # 1. 下載你的 GitHub Pages 專案
+      # 1. Checkout website
       # ------------------------------------------------------------
       - name: Checkout website
         uses: actions/checkout@v4
 
       # ------------------------------------------------------------
-      # 2. 下載官方 sherpa-onnx
+      # 2. Checkout official sherpa-onnx
       # ------------------------------------------------------------
       - name: Checkout sherpa-onnx
         uses: actions/checkout@v4
@@ -36,7 +36,7 @@ jobs:
           path: sherpa-onnx
 
       # ------------------------------------------------------------
-      # 3. 安裝 Emscripten 4.0.23
+      # 3. Install Emscripten 4.0.23
       # ------------------------------------------------------------
       - name: Install Emscripten
         shell: bash
@@ -54,79 +54,41 @@ jobs:
           ./emsdk activate 4.0.23
 
       # ------------------------------------------------------------
-      # 4. 檢查官方 sherpa-onnx WASM 設定
+      # 4. Verify official sherpa-onnx already exports FS
       # ------------------------------------------------------------
-      - name: Verify sherpa-onnx WASM configuration
+      - name: Verify official FS configuration
         shell: bash
         run: |
           set -euxo pipefail
 
-          echo "===== build-wasm-simd-web.sh ====="
-          sed -n '1,220p' sherpa-onnx/build-wasm-simd-web.sh
+          echo "===== wasm-common.cmake ====="
 
-          echo
-          echo "===== wasm/web/CMakeLists.txt ====="
-          sed -n '1,220p' sherpa-onnx/wasm/web/CMakeLists.txt
-
-          echo
-          echo "===== wasm/wasm-common.cmake ====="
-          sed -n '1,260p' sherpa-onnx/wasm/wasm-common.cmake
-
-          echo
-          echo "===== Verify FS export exists ====="
+          grep -n \
+            "FORCE_FILESYSTEM" \
+            sherpa-onnx/wasm/wasm-common.cmake
 
           grep -n \
             "EXPORTED_RUNTIME_METHODS" \
             sherpa-onnx/wasm/wasm-common.cmake
 
-          grep -n \
-            "'FS'" \
-            sherpa-onnx/wasm/wasm-common.cmake
+          echo
+          echo "===== wasm/web/CMakeLists.txt ====="
+
+          cat sherpa-onnx/wasm/web/CMakeLists.txt
+
+          echo
+          echo "===== build-wasm-simd-web.sh ====="
+
+          sed -n '1,240p' sherpa-onnx/build-wasm-simd-web.sh
 
       # ------------------------------------------------------------
-      # 5. 強制 Web build 明確 export FS
+      # 5. Build official WebAssembly
       #
-      # 官方目前 wasm-common.cmake 已經包含：
+      # IMPORTANT:
+      # 不再 patch CMake
+      # 不再使用 CFLAGS/CXXFLAGS
       #
-      # -sEXPORTED_RUNTIME_METHODS=[
-      #   ...,
-      #   'FS'
-      # ]
-      #
-      # 這裡再加一次到 Web target 的 linker flags，
-      # 確保最後產生的 sherpa-onnx-wasm-web.js 可以使用 FS。
-      # ------------------------------------------------------------
-      - name: Patch WebAssembly FS export
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          python3 <<'PY'
-          from pathlib import Path
-
-          path = Path("sherpa-onnx/wasm/web/CMakeLists.txt")
-          text = path.read_text()
-
-          old = 'string(APPEND MY_FLAGS " -s \\'EXPORT_NAME=\\"SherpaOnnx\\"\\' ")'
-
-          new = '''string(APPEND MY_FLAGS " -s \\'EXPORT_NAME=\\"SherpaOnnx\\"\\' ")
-          string(APPEND MY_FLAGS " -sEXPORTED_RUNTIME_METHODS=[\\'FS\\'] ")'''
-
-          if old not in text:
-              print("Expected Web CMake line was not found.")
-              print(text)
-              raise SystemExit(1)
-
-          text = text.replace(old, new, 1)
-
-          path.write_text(text)
-
-          print("===== Patched wasm/web/CMakeLists.txt =====")
-          print(path.read_text())
-          PY
-
-      # ------------------------------------------------------------
-      # 6. 編譯官方 WebAssembly
+      # 官方 wasm-common.cmake 已經包含 FS export。
       # ------------------------------------------------------------
       - name: Build sherpa-onnx WebAssembly
         shell: bash
@@ -135,18 +97,18 @@ jobs:
 
           source emsdk/emsdk_env.sh
 
-          echo "===== Emscripten ====="
+          echo "===== Emscripten version ====="
           emcc --version
 
           echo
-          echo "===== Build sherpa-onnx ====="
+          echo "===== Building sherpa-onnx WebAssembly ====="
 
           cd sherpa-onnx
 
           ./build-wasm-simd-web.sh
 
       # ------------------------------------------------------------
-      # 7. 檢查產物
+      # 6. Verify generated files
       # ------------------------------------------------------------
       - name: Verify generated WebAssembly
         shell: bash
@@ -158,27 +120,34 @@ jobs:
 
           echo "===== Generated files ====="
 
+          test -f "$JS_FILE"
+          test -f "$WASM_FILE"
+
           ls -lh "$JS_FILE"
           ls -lh "$WASM_FILE"
 
           echo
-          echo "===== Search for FS ====="
+          echo "===== Searching for FS ====="
 
-          grep -n "FS" "$JS_FILE" | head -20 || true
+          if grep -q "FS" "$JS_FILE"; then
+            echo "OK: FS symbol detected in generated JS."
+          else
+            echo "ERROR: FS symbol was NOT found."
+            exit 1
+          fi
 
           echo
-          echo "===== Search for exported runtime methods ====="
+          echo "===== Searching for FORCE_FILESYSTEM ====="
 
-          grep -n "EXPORTED_RUNTIME_METHODS" "$JS_FILE" | head -10 || true
+          grep -o "FORCE_FILESYSTEM" "$JS_FILE" | head -5 || true
 
           echo
-          echo "===== File sizes ====="
+          echo "===== Searching for runtime FS methods ====="
 
-          du -h "$JS_FILE"
-          du -h "$WASM_FILE"
+          grep -o "EXPORTED_RUNTIME_METHODS" "$JS_FILE" | head -5 || true
 
       # ------------------------------------------------------------
-      # 8. 建立 Pages public/assets
+      # 7. Prepare public directory
       # ------------------------------------------------------------
       - name: Prepare public directory
         shell: bash
@@ -189,7 +158,7 @@ jobs:
           mkdir -p public/assets
 
       # ------------------------------------------------------------
-      # 9. 複製 WebAssembly
+      # 8. Copy WebAssembly runtime
       # ------------------------------------------------------------
       - name: Copy WebAssembly runtime
         shell: bash
@@ -212,8 +181,7 @@ jobs:
           ls -lh public/assets/
 
       # ------------------------------------------------------------
-      # 10. 最終檢查：
-      #     不允許沒有 FS 的 WASM 被部署
+      # 9. Final FS check on the actual Pages artifact
       # ------------------------------------------------------------
       - name: Final FS export check
         shell: bash
@@ -222,21 +190,25 @@ jobs:
 
           JS_FILE="public/assets/sherpa-onnx-wasm-web.js"
 
-          echo "Checking $JS_FILE"
+          echo "Checking:"
+          echo "$JS_FILE"
+
+          test -f "$JS_FILE"
 
           if grep -q "FS" "$JS_FILE"; then
-            echo "OK: FS detected in generated WebAssembly JavaScript."
+            echo "OK: FS exists in final deployed JS."
           else
-            echo "ERROR: FS was NOT found in generated WebAssembly JavaScript."
+            echo "ERROR: FS does not exist in final deployed JS."
             exit 1
           fi
 
           echo
-          echo "===== Final WASM assets ====="
+          echo "===== Final files ====="
+
           ls -lh public/assets/
 
       # ------------------------------------------------------------
-      # 11. 複製網站
+      # 10. Copy website
       # ------------------------------------------------------------
       - name: Copy website
         shell: bash
@@ -252,29 +224,31 @@ jobs:
           touch public/.nojekyll
 
           echo "===== Final public directory ====="
+
           find public -maxdepth 2 -type f -print
 
           echo
-          echo "===== Final assets ====="
+          echo "===== Final asset sizes ====="
+
           ls -lh public/assets/
 
       # ------------------------------------------------------------
-      # 12. GitHub Pages
+      # 11. Configure GitHub Pages
       # ------------------------------------------------------------
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
       # ------------------------------------------------------------
-      # 13. 上傳 Pages artifact
+      # 12. Upload Pages artifact
       # ------------------------------------------------------------
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: public
 
-  # --------------------------------------------------------------
+  # ================================================================
   # Deploy
-  # --------------------------------------------------------------
+  # ================================================================
   deploy:
     needs: build
     runs-on: ubuntu-22.04
