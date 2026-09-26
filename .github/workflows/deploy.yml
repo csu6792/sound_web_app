@@ -20,83 +20,142 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+      # --------------------------------------------------
+      # 1. Checkout website
+      # --------------------------------------------------
       - name: Checkout website
         uses: actions/checkout@v4
 
+      # --------------------------------------------------
+      # 2. Checkout sherpa-onnx
+      # --------------------------------------------------
       - name: Checkout sherpa-onnx
         uses: actions/checkout@v4
         with:
           repository: k2-fsa/sherpa-onnx
           path: sherpa-onnx
 
+      # --------------------------------------------------
+      # 3. Install Emscripten
+      # --------------------------------------------------
       - name: Install Emscripten
         shell: bash
         run: |
+          set -euxo pipefail
+
           git clone --depth 1 --branch 4.0.23 \
             https://github.com/emscripten-core/emsdk.git
 
           cd emsdk
+
           ./emsdk install 4.0.23
           ./emsdk activate 4.0.23
 
+      # --------------------------------------------------
+      # 4. Build WebAssembly runtime
+      # --------------------------------------------------
       - name: Build official WebAssembly runtime
         shell: bash
         run: |
+          set -euxo pipefail
+
           source emsdk/emsdk_env.sh
+
           cd sherpa-onnx
 
           ./build-wasm-simd-web.sh
 
+      # --------------------------------------------------
+      # 5. Create public/assets
+      # --------------------------------------------------
+      - name: Prepare assets directory
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          rm -rf public
+          mkdir -p public/assets
+
+      # --------------------------------------------------
+      # 6. Download SenseVoice INT8
+      # --------------------------------------------------
       - name: Download SenseVoice INT8
         shell: bash
         run: |
           set -euxo pipefail
 
-          mkdir -p public/assets
+          MODEL_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09.tar.bz2"
 
-          curl -L --fail --retry 3 \
-            "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09.tar.bz2" \
+          echo "Downloading SenseVoice model..."
+
+          curl -fL \
+            --retry 5 \
+            --retry-delay 5 \
+            "$MODEL_URL" \
             -o /tmp/sensevoice.tar.bz2
 
+          echo "===== Downloaded archive ====="
+          ls -lh /tmp/sensevoice.tar.bz2
+
+          rm -rf /tmp/sensevoice
           mkdir -p /tmp/sensevoice
+
+          echo "Extracting model..."
 
           tar -xjf /tmp/sensevoice.tar.bz2 \
             -C /tmp/sensevoice \
             --strip-components=1
 
-          cp /tmp/sensevoice/model.int8.onnx \
+          echo "===== Extracted files ====="
+          find /tmp/sensevoice -maxdepth 2 -type f -print
+
+          test -f /tmp/sensevoice/model.int8.onnx
+          test -f /tmp/sensevoice/tokens.txt
+
+          cp \
+            /tmp/sensevoice/model.int8.onnx \
             public/assets/model.int8.onnx
 
-          cp /tmp/sensevoice/tokens.txt \
+          cp \
+            /tmp/sensevoice/tokens.txt \
             public/assets/tokens.txt
 
+          echo "===== Model assets ====="
+          ls -lh public/assets/model.int8.onnx
+          ls -lh public/assets/tokens.txt
+
+      # --------------------------------------------------
+      # 7. Copy WebAssembly runtime
+      # --------------------------------------------------
       - name: Copy WebAssembly runtime
         shell: bash
         run: |
           set -euxo pipefail
 
-          mkdir -p public/assets
-
           cp \
             sherpa-onnx/build-wasm-simd-web/install/bin/wasm/web/sherpa-onnx-wasm-web.js \
-            public/assets/
+            public/assets/sherpa-onnx-wasm-web.js
 
           cp \
             sherpa-onnx/build-wasm-simd-web/install/bin/wasm/web/sherpa-onnx-wasm-web.wasm \
-            public/assets/
+            public/assets/sherpa-onnx-wasm-web.wasm
 
           cp \
             sherpa-onnx/wasm/asr/sherpa-onnx-asr.js \
-            public/assets/
+            public/assets/sherpa-onnx-asr.js
 
-          echo "===== Assets ====="
+          echo "===== WASM assets ====="
           ls -lh public/assets/
 
+      # --------------------------------------------------
+      # 8. Copy website
+      # --------------------------------------------------
       - name: Copy website
         shell: bash
         run: |
           set -euxo pipefail
 
+          test -f index.html
           cp index.html public/index.html
 
           if [ -f sw.js ]; then
@@ -105,16 +164,77 @@ jobs:
 
           touch public/.nojekyll
 
+      # --------------------------------------------------
+      # 9. IMPORTANT: Verify final Pages files
+      # --------------------------------------------------
+      - name: Verify Pages files
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          echo ""
+          echo "========================================"
+          echo "        FINAL PUBLIC DIRECTORY"
+          echo "========================================"
+
+          find public \
+            -maxdepth 3 \
+            -type f \
+            -printf '%p %s bytes\n' \
+            | sort
+
+          echo ""
+          echo "========================================"
+          echo "        VERIFY REQUIRED FILES"
+          echo "========================================"
+
+          test -f public/index.html
+
+          test -f public/assets/model.int8.onnx
+          test -f public/assets/tokens.txt
+
+          test -f public/assets/sherpa-onnx-asr.js
+          test -f public/assets/sherpa-onnx-wasm-web.js
+          test -f public/assets/sherpa-onnx-wasm-web.wasm
+
+          echo ""
+          echo "All required files exist."
+
+          echo ""
+          echo "========================================"
+          echo "        MODEL SIZE"
+          echo "========================================"
+
+          ls -lh public/assets/model.int8.onnx
+
+          echo ""
+          echo "========================================"
+          echo "        ASSETS"
+          echo "========================================"
+
+          ls -lh public/assets/
+
+      # --------------------------------------------------
+      # 10. Configure GitHub Pages
+      # --------------------------------------------------
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
+      # --------------------------------------------------
+      # 11. Upload Pages artifact
+      # --------------------------------------------------
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: public
 
+  # ======================================================
+  # DEPLOY
+  # ======================================================
+
   deploy:
     needs: build
+
     runs-on: ubuntu-22.04
 
     environment:
